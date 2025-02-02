@@ -6,7 +6,7 @@ import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 
-import {IClankerToken, ITokenFactory, INonfungiblePositionManager, IUniswapV3Factory, ILockerFactory, ILocker, ExactInputSingleParams, ISwapRouter} from "./interface.sol";
+import {IClankerToken, ITokenFactory, INonfungiblePositionManager, IUniswapV3Factory, ILockerFactory, ILocker, ExactInputSingleParams, ISwapRouter} from "../../interface.sol";
 
 contract ClankerTokenFactory is ITokenFactory, AccessControl {
     error Deprecated();
