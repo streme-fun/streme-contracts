@@ -10,7 +10,7 @@ import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // TODO: segregate these interfaces into a separate files
-import { INonfungiblePositionManager, IUniswapV3Factory, ILockerFactory, ExactInputSingleParams, ISwapRouter} from "../../interface.sol";
+import { INonfungiblePositionManager, IUniswapV3Factory} from "../../interface.sol";
 
 interface ILpLockerv2 {
     struct UserRewardRecipient {
@@ -43,20 +43,20 @@ contract LPFactory is AccessControl {
 
     address public weth = 0x4200000000000000000000000000000000000006;
     ILpLockerv2 public liquidityLocker;
-    address public feeRecipient;
+    //address public feeRecipient;
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
     //bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    address public taxCollector;
+    //address public taxCollector;
     uint64 public defaultLockingPeriod = 33275115461;
-    uint8 public taxRate = 25; // 25 / 1000 -> 2.5 %
-    uint8 public lpFeesCut = 50; // 5 / 100 -> 5%
-    uint8 public protocolCut = 30; // 3 / 100 -> 3%
+    //uint8 public taxRate = 25; // 25 / 1000 -> 2.5 %
+    //uint8 public lpFeesCut = 50; // 5 / 100 -> 5%
+    //uint8 public protocolCut = 30; // 3 / 100 -> 3%
 
     IUniswapV3Factory public uniswapV3Factory;
     INonfungiblePositionManager public positionManager;
-    address public swapRouter;
-    bool public bundleFeeSwitch;
+    //address public swapRouter;
+    //bool public bundleFeeSwitch;
 
     struct DeploymentInfo {
         address token;
@@ -66,18 +66,13 @@ contract LPFactory is AccessControl {
     mapping(address => DeploymentInfo[]) public tokensDeployedByUsers;
     mapping(address => DeploymentInfo) public deploymentInfoForToken;
 
-    constructor(address taxCollector_, address uniswapV3Factory_, address positionManager_, address swapRouter_, uint64 defaultLockingPeriod_, address lpLocker_) {
-        feeRecipient = msg.sender;
+    constructor(address uniswapV3Factory_, address positionManager_, uint64 defaultLockingPeriod_, address lpLocker_) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(DEPLOYER_ROLE, msg.sender);
-        _grantRole(DEPLOYER_ROLE, feeRecipient);
         liquidityLocker = ILpLockerv2(lpLocker_);
-        
-        taxCollector = taxCollector_;
         uniswapV3Factory = IUniswapV3Factory(uniswapV3Factory_);
         positionManager = INonfungiblePositionManager(positionManager_);
         defaultLockingPeriod = defaultLockingPeriod_;
-        swapRouter = swapRouter_;
     }
 
     function createLP(
@@ -90,6 +85,7 @@ contract LPFactory is AccessControl {
         address deployer,
         uint256 
     ) public returns (uint256 positionId) {
+        token.transferFrom(msg.sender, address(this), supplyPerPool);
         token.approve(address(positionManager), supplyPerPool);
 
         positionId = configurePool(
@@ -101,6 +97,17 @@ contract LPFactory is AccessControl {
             supplyPerPool,
             deployer,  // user requesting the token deployment
             0 // preSaleEth, not used
+        );
+
+        DeploymentInfo memory deploymentInfo = DeploymentInfo({
+            token: address(token),
+            positionId: positionId,
+            locker: address(liquidityLocker)
+        });
+
+        deploymentInfoForToken[address(token)] = deploymentInfo;
+        tokensDeployedByUsers[deployer].push(
+            deploymentInfo
         );
     }
 
@@ -114,7 +121,7 @@ contract LPFactory is AccessControl {
         address deployer, // user requesting the token deployment
         uint256 preSaleEth
     ) internal returns (uint256 positionId) {
-        //if (newToken >= pairedToken) revert Invalid();     // TODO: review this check
+        //if (newToken >= pairedToken) revert Invalid(); // removed this check, instead we will sort the tokens
         
         // assign the tokens to token0 and token1:
         (address token0, address token1) = newToken < pairedToken
@@ -150,21 +157,6 @@ contract LPFactory is AccessControl {
             );
         (positionId, , , ) = positionManager.mint(params);
 
-        // Add the token to the list of tokens deployed by the user
-        tokensDeployedByUsers[deployer].push(
-            DeploymentInfo({
-                token: newToken,
-                positionId: positionId,
-                locker: address(liquidityLocker)
-            })
-        );
-        // Add the token to the list of tokens deployed
-        deploymentInfoForToken[newToken] = DeploymentInfo({
-            token: newToken,
-            positionId: positionId,
-            locker: address(liquidityLocker)
-        });
-
         positionManager.safeTransferFrom(
             address(this),
             address(liquidityLocker),
@@ -177,6 +169,12 @@ contract LPFactory is AccessControl {
                 lpTokenId: positionId
             })
         );
+    }
+
+    function getTokensDeployedByUser(
+        address user
+    ) external view returns (DeploymentInfo[] memory) {
+        return tokensDeployedByUsers[user];
     }
 
     function claimRewards(address token) external {
@@ -192,8 +190,4 @@ contract LPFactory is AccessControl {
         liquidityLocker = ILpLockerv2(newLocker);
     }
 
-    // TODO: still need this?
-    function setFeeRecipient(address _feeRecipient) public onlyRole(DEPLOYER_ROLE) {
-        feeRecipient = _feeRecipient;
-    }
 }
