@@ -44,7 +44,6 @@ contract LPFactory is AccessControl {
     address public weth = 0x4200000000000000000000000000000000000006;
     ILpLockerv2 public liquidityLocker;
     address public feeRecipient;
-    address public lockerImplementation;
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
     //bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
@@ -58,6 +57,14 @@ contract LPFactory is AccessControl {
     INonfungiblePositionManager public positionManager;
     address public swapRouter;
     bool public bundleFeeSwitch;
+
+    struct DeploymentInfo {
+        address token;
+        uint256 positionId;
+        address locker;
+    }
+    mapping(address => DeploymentInfo[]) public tokensDeployedByUsers;
+    mapping(address => DeploymentInfo) public deploymentInfoForToken;
 
     constructor(address taxCollector_, address uniswapV3Factory_, address positionManager_, address swapRouter_, uint64 defaultLockingPeriod_, address lpLocker_) {
         feeRecipient = msg.sender;
@@ -80,7 +87,8 @@ contract LPFactory is AccessControl {
         int24 tickSpacing,
         uint24 fee,
         uint256 supplyPerPool,
-        uint256 preSaleEth
+        address deployer,
+        uint256 
     ) public returns (uint256 positionId) {
         token.approve(address(positionManager), supplyPerPool);
 
@@ -91,8 +99,8 @@ contract LPFactory is AccessControl {
             tickSpacing,
             fee,
             supplyPerPool,
-            msg.sender,  // TODO: who should this be? Probably not msg.sender
-            0
+            deployer,  // user requesting the token deployment
+            0 // preSaleEth, not used
         );
     }
 
@@ -103,10 +111,16 @@ contract LPFactory is AccessControl {
         int24 tickSpacing,
         uint24 fee,
         uint256 supplyPerPool,
-        address deployer,
+        address deployer, // user requesting the token deployment
         uint256 preSaleEth
     ) internal returns (uint256 positionId) {
-        if (newToken >= pairedToken) revert Invalid();     // TODO: review this check
+        //if (newToken >= pairedToken) revert Invalid();     // TODO: review this check
+        
+        // assign the tokens to token0 and token1:
+        (address token0, address token1) = newToken < pairedToken
+            ? (newToken, pairedToken)
+            : (pairedToken, newToken);
+
         uint160 sqrtPriceX96 = tick.getSqrtRatioAtTick();
 
         // Create pool
@@ -122,19 +136,34 @@ contract LPFactory is AccessControl {
 
         INonfungiblePositionManager.MintParams
             memory params = INonfungiblePositionManager.MintParams(
-                newToken,
-                pairedToken,
+                token0,
+                token1,
                 fee,
                 tick,
                 (TickMath.MAX_TICK / tickSpacing) * tickSpacing,
-                supplyPerPool,
-                preSaleEth,
+                (token0 == newToken) ? supplyPerPool : preSaleEth,
+                (token1 == newToken) ? supplyPerPool : preSaleEth,
                 0,
                 0,
                 address(this),
                 block.timestamp
             );
         (positionId, , , ) = positionManager.mint(params);
+
+        // Add the token to the list of tokens deployed by the user
+        tokensDeployedByUsers[deployer].push(
+            DeploymentInfo({
+                token: newToken,
+                positionId: positionId,
+                locker: address(liquidityLocker)
+            })
+        );
+        // Add the token to the list of tokens deployed
+        deploymentInfoForToken[newToken] = DeploymentInfo({
+            token: newToken,
+            positionId: positionId,
+            locker: address(liquidityLocker)
+        });
 
         positionManager.safeTransferFrom(
             address(this),
@@ -150,6 +179,20 @@ contract LPFactory is AccessControl {
         );
     }
 
+    function claimRewards(address token) external {
+        DeploymentInfo memory deploymentInfo = deploymentInfoForToken[token];
+        if (deploymentInfo.token == address(0)) revert NotFound();
+
+        ILpLockerv2(deploymentInfo.locker).collectRewards(
+            deploymentInfo.positionId
+        );
+    }
+
+    function updateLiquidityLocker(address newLocker) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        liquidityLocker = ILpLockerv2(newLocker);
+    }
+
+    // TODO: still need this?
     function setFeeRecipient(address _feeRecipient) public onlyRole(DEPLOYER_ROLE) {
         feeRecipient = _feeRecipient;
     }
