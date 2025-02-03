@@ -55,7 +55,8 @@ contract StakingFactory is AccessControl {
         address admin
     ) external returns (address) {
         // @dev 1. Create a new staked token
-        bytes32 salt = keccak256(abi.encode(msg.sender, symbol));
+        //bytes32 salt = keccak256(abi.encode(msg.sender, symbol));
+        bytes32 salt = keccak256(abi.encode(superTokenAddress));
         address stakedToken = Clones.cloneDeterministic(stakedTokenImplementation, salt);
 
         // @dev 2. Create a new distribition pool

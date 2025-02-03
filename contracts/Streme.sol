@@ -9,11 +9,11 @@ import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {TickMath} from "./TickMath.sol";
 
 import {IClankerToken, ITokenFactory, INonfungiblePositionManager, IUniswapV3Factory, ILockerFactory, ILocker, ExactInputSingleParams, ISwapRouter} from "./interface.sol";
-import {Bytes32AddressLib} from "./Bytes32AddressLib.sol";
+//import {Bytes32AddressLib} from "./Bytes32AddressLib.sol";
 
 contract Streme is AccessControl {
     using TickMath for int24;
-    using Bytes32AddressLib for bytes32;
+    //using Bytes32AddressLib for bytes32;
 
     error Deprecated();
 
