@@ -35,6 +35,11 @@ contract SuperTokenFactory is AccessControl {
         return superToken;
     }
 
+    function predictSuperTokenAddress(string memory _symbol, address _requestor) external view returns (address) {
+        bytes32 salt = keccak256(abi.encode(_requestor, _symbol));
+        return Clones.predictDeterministicAddress(implementation, salt);
+    }
+
     function setImplementation(address _implementation) external onlyRole(DEFAULT_ADMIN_ROLE) {
         implementation = _implementation;
     }
