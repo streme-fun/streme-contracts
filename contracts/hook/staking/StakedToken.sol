@@ -2,10 +2,10 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.22;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ERC20Upgradeable, IERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
+import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 interface ERC20Hooks {
     function _beforeTokenTransfer(
@@ -15,7 +15,7 @@ interface ERC20Hooks {
     ) external;
 }
 
-contract StakedToken is ERC20, ERC20Burnable, ReentrancyGuard, AccessControl {
+contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
     IERC20 public token;
     ERC20Hooks public hooks;
     mapping(address account => uint256) public depositTimestamps;
@@ -48,9 +48,17 @@ contract StakedToken is ERC20, ERC20Burnable, ReentrancyGuard, AccessControl {
      */
     event LockDurationUpdated(uint256 duration);
 
-    constructor(address defaultAdmin, string memory name, string memory symbol, address stakeableToken, ERC20Hooks _hooks, uint256 _lockDuration)
-        ERC20(name, symbol)
-    {
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address defaultAdmin, string memory name, string memory symbol, address stakeableToken, ERC20Hooks _hooks, uint256 _lockDuration) initializer public {
+        __ERC20_init(name, symbol);
+        __ERC20Burnable_init();
+        __ReentrancyGuard_init();
+        __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
         token = IERC20(stakeableToken);
         hooks = _hooks;
@@ -82,7 +90,7 @@ contract StakedToken is ERC20, ERC20Burnable, ReentrancyGuard, AccessControl {
 
     function _update(address from, address to, uint256 amount)
         internal
-        override(ERC20)
+        override(ERC20Upgradeable)
     {
         if (from != address(0)) {
             require(block.timestamp > depositTimestamps[from] + lockDuration, "StakedToken: tokens are still locked");
