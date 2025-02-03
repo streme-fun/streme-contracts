@@ -3,7 +3,8 @@ pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+//import "@openzeppelin/contracts/access/Ownable.sol";
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -21,7 +22,7 @@ interface ILpLockerv2 {
     ) external;
 }
 
-contract LpLockerv2 is Ownable, IERC721Receiver {
+contract LpLockerv2 is AccessControl, IERC721Receiver {
     event LockId(uint256 _id);
     event Received(address indexed from, uint256 tokenId);
 
@@ -38,6 +39,8 @@ contract LpLockerv2 is Ownable, IERC721Receiver {
         uint256 totalAmount0
     );
 
+
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     IERC721 private SafeERC721;
     address private immutable e721Token;
     address public positionManager = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
@@ -63,30 +66,27 @@ contract LpLockerv2 is Ownable, IERC721Receiver {
     mapping(address => uint256[]) public _userTokenIds;
 
     constructor(
-        address tokenFactory, // Address of the clanker factory
-        address token, // Address of the ERC721 Uniswap V3 LP NFT
+        address lpFactory, // Address of the LP factory
+        address nftTokenAddress, // Address of the ERC721 Uniswap V3 LP NFT
         address teamRecipient, // streme team address to receive portion of the fees
         uint256 teamReward // streme team reward percentage
-    ) Ownable(teamRecipient) {
-        SafeERC721 = IERC721(token);
-        e721Token = token;
-        _factory = tokenFactory;
+    ) {
+        SafeERC721 = IERC721(nftTokenAddress);
+        e721Token = nftTokenAddress;
+        _factory = lpFactory;
         _teamReward = teamReward;
         _teamRecipient = teamRecipient;
-    }
-
-    modifier onlyOwnerOrFactory() {
-        if (msg.sender != owner() && msg.sender != _factory) {
-            revert NotAllowed(msg.sender);
-        }
-        _;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(MANAGER_ROLE, msg.sender);
+        _grantRole(MANAGER_ROLE, teamRecipient);
+        _grantRole(MANAGER_ROLE, lpFactory);
     }
 
     function setOverrideTeamRewardsForToken(
         uint256 tokenId,
         address newTeamRecipient,
         uint256 newTeamReward
-    ) public onlyOwner {
+    ) public onlyRole(MANAGER_ROLE) {
         _teamOverrideRewardRecipientForToken[tokenId] = TeamRewardRecipient({
             recipient: newTeamRecipient,
             reward: newTeamReward,
@@ -94,27 +94,27 @@ contract LpLockerv2 is Ownable, IERC721Receiver {
         });
     }
 
-    function updateLPFactory(address newFactory) public onlyOwner {
+    function updateLPFactory(address newFactory) public onlyRole(MANAGER_ROLE) {
         _factory = newFactory;
     }
 
     // Update the clanker team reward
-    function updateTeamReward(uint256 newReward) public onlyOwner {
+    function updateTeamReward(uint256 newReward) public onlyRole(MANAGER_ROLE) {
         _teamReward = newReward;
     }
 
     // Update the clanker team recipient
-    function updateTeamRecipient(address newRecipient) public onlyOwner {
+    function updateTeamRecipient(address newRecipient) public onlyRole(MANAGER_ROLE) {
         _teamRecipient = newRecipient;
     }
 
     // Withdraw ETH from the contract
-    function withdrawETH(address recipient) public onlyOwner {
+    function withdrawETH(address recipient) public onlyRole(MANAGER_ROLE) {
         payable(recipient).transfer(address(this).balance);
     }
 
     // Withdraw ERC20 tokens from the contract
-    function withdrawERC20(address _token, address recipient) public onlyOwner {
+    function withdrawERC20(address _token, address recipient) public onlyRole(MANAGER_ROLE) {
         IERC20 IToken = IERC20(_token);
         IToken.transfer(recipient, IToken.balanceOf(address(this)));
     }
@@ -206,7 +206,7 @@ contract LpLockerv2 is Ownable, IERC721Receiver {
 
     function addUserRewardRecipient(
         UserRewardRecipient memory recipient
-    ) public onlyOwnerOrFactory {
+    ) public onlyRole(MANAGER_ROLE) {
         _userRewardRecipientForToken[recipient.lpTokenId] = recipient;
         _userTokenIds[recipient.recipient].push(recipient.lpTokenId);
     }
@@ -219,8 +219,8 @@ contract LpLockerv2 is Ownable, IERC721Receiver {
             recipient.lpTokenId
         ];
 
-        // Only owner or recipient can replace the reward recipient
-        if (msg.sender != owner() && msg.sender != oldRecipient.recipient) {
+        // Only manager or recipient can replace the reward recipient
+        if (!hasRole(MANAGER_ROLE, msg.sender) && msg.sender != oldRecipient.recipient) {
             revert NotAllowed(msg.sender);
         }
 
@@ -248,7 +248,6 @@ contract LpLockerv2 is Ownable, IERC721Receiver {
         uint256 id,
         bytes calldata
     ) external override returns (bytes4) {
-        // Only clanker team EOA can send the NFT here
         if (from != _factory) {
             revert NotAllowed(from);
         }
