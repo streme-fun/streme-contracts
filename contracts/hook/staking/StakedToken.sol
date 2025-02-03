@@ -7,18 +7,18 @@ import {ERC20Upgradeable, IERC20} from "@openzeppelin/contracts-upgradeable/toke
 import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
-interface ERC20Hooks {
-    function _beforeTokenTransfer(
-        address from,
-        address to,
-        uint256 amount
-    ) external;
+interface IDistributionPool {
+    function getUnits(address memberAddr) external view returns (uint128);
+    function updateMemberUnits(address memberAddr, uint128 newUnits) external returns (bool);
 }
 
 contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
-    IERC20 public token;
-    ERC20Hooks public hooks;
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+    IERC20 public stakeableToken;
+    IERC20 public rewardToken;
     mapping(address account => uint256) public depositTimestamps;
+    IDistributionPool public pool;
+    uint256 public unitDecimals = 18;
 
     /**
      * @dev Lock duration in seconds, period starts after the deposit timestamp
@@ -54,19 +54,22 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         _disableInitializers();
     }
 
-    function initialize(address defaultAdmin, string memory name, string memory symbol, address stakeableToken, ERC20Hooks _hooks, uint256 _lockDuration) initializer public {
-        __ERC20_init(name, symbol);
+    function initialize(address _defaultAdmin, string memory _name, string memory _symbol, address _stakeableToken, address _pool, uint256 _lockDuration) initializer public {
+        __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
         __ReentrancyGuard_init();
         __AccessControl_init();
-        _grantRole(DEFAULT_ADMIN_ROLE, defaultAdmin);
-        token = IERC20(stakeableToken);
-        hooks = _hooks;
+        _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
+        _grantRole(MANAGER_ROLE, _defaultAdmin);
+        stakeableToken = IERC20(_stakeableToken);
+        rewardToken = stakeableToken; // TODO: change this?
+        pool = IDistributionPool(_pool);
         lockDuration = _lockDuration;
+        // TODO: add 1 unit to protocolFeeRecipient so that it is never zero?
     }
 
     function stake(address to, uint256 amount) external nonReentrant {
-        token.transferFrom(msg.sender, address(this), amount);  // Transfer the stakable token to this contract
+        stakeableToken.transferFrom(msg.sender, address(this), amount);  // Transfer the stakable token to this contract
         _mint(to, amount);
         depositTimestamps[to] = block.timestamp;
         emit Deposit(to, block.timestamp, amount);
@@ -74,7 +77,7 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
 
     function unstake(address to, uint256 amount) external nonReentrant {
         _burn(msg.sender, amount);
-        token.transfer(to, amount);  // Transfer the stakable token back to the user
+        stakeableToken.transfer(to, amount);  // Transfer the stakable token back to the user
         emit Withdraw(msg.sender, depositTimestamps[msg.sender], amount);
     }
 
@@ -88,6 +91,30 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         emit LockDurationUpdated(lockDuration);
     }
 
+    // @dev ERC20PoolManager functions:
+
+    function setPool(IDistributionPool _pool) external {
+        require(hasRole(MANAGER_ROLE, msg.sender), "ERC20PoolManager: must have manager role to set pool");
+        pool = _pool;
+    }
+
+    function setToken(address _token) external {
+        require(hasRole(MANAGER_ROLE, msg.sender), "ERC20PoolManager: must have manager role to set token");
+        rewardToken = IERC20(_token);
+    }
+
+    function setUnitDecimals(uint256 _unitDecimals) external {
+        require(hasRole(MANAGER_ROLE, msg.sender), "ERC20PoolManager: must have manager role to set unit decimals");
+        unitDecimals = _unitDecimals;
+    }
+
+    function updateMemberUnits(address memberAddr, uint128 newUnits) external {
+        require(hasRole(MANAGER_ROLE, msg.sender), "ERC20PoolManager: must have manager role to update units");
+        pool.updateMemberUnits(memberAddr, newUnits);
+    }
+
+
+
     function _update(address from, address to, uint256 amount)
         internal
         override(ERC20Upgradeable)
@@ -95,8 +122,23 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         if (from != address(0)) {
             require(block.timestamp > depositTimestamps[from] + lockDuration, "StakedToken: tokens are still locked");
         }
-        if (address(hooks) != address(0)) {
-            hooks._beforeTokenTransfer(from, to, amount);
+        //_updateif (address(hooks) != address(0)) {
+            //hooks._beforeTokenTransfer(from, to, amount);
+        //}
+        uint128 transferUnits = uint128(amount / (10 ** unitDecimals));
+        // first adjust sender's units:
+        if (from != address(0)) {
+            uint128 senderUnits = pool.getUnits(from);
+            if (senderUnits > 0) {
+                // newUnits is max(0, senderUnits - transferUnits):                
+                uint128 newUnits = senderUnits > transferUnits ? senderUnits - transferUnits : 0;
+                pool.updateMemberUnits(from, newUnits);
+            }
+        }
+        // now adjust recipient's units:
+        if (to != address(0)) {
+            uint128 recipientUnits = pool.getUnits(to);
+            pool.updateMemberUnits(to, recipientUnits + transferUnits);
         }
         super._update(from, to, amount);
     }
