@@ -201,7 +201,7 @@ contract LPFactory is AccessControl {
         address deployer, // user requesting the token deployment
         uint256 preSaleEth
     ) internal returns (uint256 positionId) {
-        //if (newToken >= pairedToken) revert Invalid(); // removed this check, instead we will sort the tokens
+        if (newToken >= pairedToken) revert Invalid();
         
         // assign the tokens to token0 and token1:
         (address token0, address token1) = newToken < pairedToken
@@ -233,8 +233,8 @@ contract LPFactory is AccessControl {
                 fee,
                 tick,
                 (TickMath.MAX_TICK / tickSpacing) * tickSpacing,
-                (token0 == newToken) ? supplyPerPool : preSaleEth,
-                (token1 == newToken) ? supplyPerPool : preSaleEth,
+                supplyPerPool,
+                preSaleEth,
                 0,
                 0,
                 address(this),
