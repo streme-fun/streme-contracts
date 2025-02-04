@@ -82,6 +82,10 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         emit Withdraw(msg.sender, depositTimestamps[msg.sender], amount);
     }
 
+    function unlockDate(address account) external view returns (uint256) {
+        return depositTimestamps[account] == 0 ? 0 : depositTimestamps[account] + lockDuration;
+    }
+
     /**
      * @dev Update the lock duration
      * @param newDuration The new lock duration in seconds
