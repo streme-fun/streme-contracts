@@ -10,7 +10,70 @@ import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 // TODO: segregate these interfaces into a separate files
-import { INonfungiblePositionManager, IUniswapV3Factory} from "../../interface.sol";
+//import { INonfungiblePositionManager, IUniswapV3Factory} from "../../interface.sol";
+interface INonfungiblePositionManager {
+    struct MintParams {
+        address token0;
+        address token1;
+        uint24 fee;
+        int24 tickLower;
+        int24 tickUpper;
+        uint256 amount0Desired;
+        uint256 amount1Desired;
+        uint256 amount0Min;
+        uint256 amount1Min;
+        address recipient;
+        uint256 deadline;
+    }
+
+    struct CollectParams {
+        uint256 tokenId;
+        address recipient;
+        uint128 amount0Max;
+        uint128 amount1Max;
+    }
+
+    function mint(
+        MintParams calldata params
+    )
+        external
+        payable
+        returns (
+            uint256 tokenId,
+            uint128 liquidity,
+            uint256 amount0,
+            uint256 amount1
+        );
+
+    function createAndInitializePoolIfNecessary(
+        address token0,
+        address token1,
+        uint24 fee,
+        uint160 sqrtPriceX96
+    ) external payable returns (address pool);
+
+    function collect(
+        CollectParams calldata params
+    ) external payable returns (uint256 amount0, uint256 amount1);
+
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) external;
+}
+
+interface IUniswapV3Factory {
+    function initialize(uint160 sqrtPriceX96) external;
+
+    function createPool(
+        address tokenA,
+        address tokenB,
+        uint24 fee
+    ) external returns (address pool);
+
+    function feeAmountTickSpacing(uint24 fee) external view returns (int24);
+}
 
 interface ILpLockerv2 {
     struct UserRewardRecipient {
@@ -48,7 +111,7 @@ contract LPFactory is AccessControl {
     //bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     //address public taxCollector;
-    uint64 public defaultLockingPeriod = 33275115461;
+    //uint64 public defaultLockingPeriod = 33275115461;
     //uint8 public taxRate = 25; // 25 / 1000 -> 2.5 %
     //uint8 public lpFeesCut = 50; // 5 / 100 -> 5%
     //uint8 public protocolCut = 30; // 3 / 100 -> 3%
@@ -66,13 +129,13 @@ contract LPFactory is AccessControl {
     mapping(address => DeploymentInfo[]) public tokensDeployedByUsers;
     mapping(address => DeploymentInfo) public deploymentInfoForToken;
 
-    constructor(address uniswapV3Factory_, address positionManager_, uint64 defaultLockingPeriod_, address lpLocker_) {
+    constructor(address uniswapV3Factory_, address positionManager_, address lpLocker_) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(DEPLOYER_ROLE, msg.sender);
         liquidityLocker = ILpLockerv2(lpLocker_);
         uniswapV3Factory = IUniswapV3Factory(uniswapV3Factory_);
         positionManager = INonfungiblePositionManager(positionManager_);
-        defaultLockingPeriod = defaultLockingPeriod_;
+        //defaultLockingPeriod = defaultLockingPeriod_;
     }
 
     function createLP(

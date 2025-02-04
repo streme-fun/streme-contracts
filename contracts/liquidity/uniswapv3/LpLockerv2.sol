@@ -39,15 +39,14 @@ contract LpLockerv2 is AccessControl, IERC721Receiver {
         uint256 totalAmount0
     );
 
-
+    // @dev LPFactory must be given MANAGER_ROLE
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
-    IERC721 private SafeERC721;
-    address private immutable e721Token;
+    //IERC721 private SafeERC721;
+    //address private immutable e721Token;
     address public positionManager = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
     string public constant version = "0.0.2";
     uint256 public _teamReward;
     address public _teamRecipient;
-    address public _factory; // LP Factory
     struct UserRewardRecipient {
         address recipient;
         uint256 lpTokenId;
@@ -66,20 +65,18 @@ contract LpLockerv2 is AccessControl, IERC721Receiver {
     mapping(address => uint256[]) public _userTokenIds;
 
     constructor(
-        address lpFactory, // Address of the LP factory
         address nftTokenAddress, // Address of the ERC721 Uniswap V3 LP NFT
         address teamRecipient, // streme team address to receive portion of the fees
         uint256 teamReward // streme team reward percentage
     ) {
-        SafeERC721 = IERC721(nftTokenAddress);
-        e721Token = nftTokenAddress;
-        _factory = lpFactory;
+        //SafeERC721 = IERC721(nftTokenAddress);
+        //e721Token = nftTokenAddress;
+        positionManager = nftTokenAddress;
         _teamReward = teamReward;
         _teamRecipient = teamRecipient;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, teamRecipient);
-        _grantRole(MANAGER_ROLE, lpFactory);
     }
 
     function setOverrideTeamRewardsForToken(
@@ -92,10 +89,6 @@ contract LpLockerv2 is AccessControl, IERC721Receiver {
             reward: newTeamReward,
             lpTokenId: tokenId
         });
-    }
-
-    function updateLPFactory(address newFactory) public onlyRole(MANAGER_ROLE) {
-        _factory = newFactory;
     }
 
     // Update the clanker team reward
@@ -175,24 +168,28 @@ contract LpLockerv2 is AccessControl, IERC721Receiver {
             teamReward = overrideRewardRecipient.reward;
         }
 
-        uint256 protocolReward0 = (amount0 * teamReward) / 100;
-        uint256 protocolReward1 = (amount1 * teamReward) / 100;
+        //uint256 protocolReward0 = (amount0 * teamReward) / 100;
+        //uint256 protocolReward1 = (amount1 * teamReward) / 100;
 
-        uint256 recipientReward0 = amount0 - protocolReward0;
-        uint256 recipientReward1 = amount1 - protocolReward1;
+        //uint256 recipientReward0 = amount0 - protocolReward0;
+        //uint256 recipientReward1 = amount1 - protocolReward1;
 
-        rewardToken0.transfer(_recipient, recipientReward0);
-        rewardToken1.transfer(_recipient, recipientReward1);
+        //rewardToken0.transfer(_recipient, recipientReward0);
+        rewardToken0.transfer(_recipient, amount0 - ((amount0 * teamReward) / 100));
+        //rewardToken1.transfer(_recipient, recipientReward1);
+        rewardToken1.transfer(_recipient, amount1 - ((amount1 * teamReward) / 100));
 
-        rewardToken0.transfer(teamRecipient, protocolReward0);
-        rewardToken1.transfer(teamRecipient, protocolReward1);
+        //rewardToken0.transfer(teamRecipient, protocolReward0);
+        rewardToken0.transfer(teamRecipient, (amount0 * teamReward) / 100);
+        //rewardToken1.transfer(teamRecipient, protocolReward1);
+        rewardToken1.transfer(teamRecipient, (amount1 * teamReward) / 100);
 
         emit ClaimedRewards(
             _recipient,
             token0,
             token1,
-            recipientReward0,
-            recipientReward1,
+            amount0 - ((amount0 * teamReward) / 100),
+            amount1 - ((amount1 * teamReward) / 100),
             amount0,
             amount1
         );
@@ -248,7 +245,7 @@ contract LpLockerv2 is AccessControl, IERC721Receiver {
         uint256 id,
         bytes calldata
     ) external override returns (bytes4) {
-        if (from != _factory) {
+        if (!hasRole(MANAGER_ROLE, from)) {
             revert NotAllowed(from);
         }
 
