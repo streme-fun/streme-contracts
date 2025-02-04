@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
+// TODO: remove this
+import "hardhat/console.sol";
+
 //import {LpLockerv2} from "./LpLockerv2.sol";
 
 //import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -142,14 +145,27 @@ contract LPFactory is AccessControl {
         IERC20 token,
         address pairedToken,
         int24 tick,
-        int24 tickSpacing,
         uint24 fee,
         uint256 supplyPerPool,
         address deployer,
-        uint256 
+        uint256 presaleEth
     ) public returns (uint256 positionId) {
+        console.log("Creating LP");
         token.transferFrom(msg.sender, address(this), supplyPerPool);
+        console.log("Token balance: %s", token.balanceOf(address(this)));
         token.approve(address(positionManager), supplyPerPool);
+        console.log("Token approved");
+
+        int24 tickSpacing = uniswapV3Factory.feeAmountTickSpacing(fee);
+        require(
+            tickSpacing != 0 &&
+                tick % tickSpacing == 0,
+            "Invalid tick"
+        );
+        console.log("Tick spacing:");
+        console.logInt(tickSpacing);
+        console.log("Tick:");
+        console.logInt(tick);
 
         positionId = configurePool(
             address(token),
@@ -161,6 +177,7 @@ contract LPFactory is AccessControl {
             deployer,  // user requesting the token deployment
             0 // preSaleEth, not used
         );
+        console.log("Pool configured");
 
         DeploymentInfo memory deploymentInfo = DeploymentInfo({
             token: address(token),
@@ -190,20 +207,25 @@ contract LPFactory is AccessControl {
         (address token0, address token1) = newToken < pairedToken
             ? (newToken, pairedToken)
             : (pairedToken, newToken);
+        console.log("Token0: %s, Token1: %s", token0, token1);
 
         uint160 sqrtPriceX96 = tick.getSqrtRatioAtTick();
+        console.log("sqrtPriceX96: %s", sqrtPriceX96);
 
         // Create pool
         address pool = uniswapV3Factory.createPool(newToken, pairedToken, fee);
+        console.log("Pool created: %s", pool);
 
         // Initialize pool
         IUniswapV3Factory(pool).initialize(sqrtPriceX96);
+        console.log("Pool initialized");
 
         if (preSaleEth > 0) {
             // Have to deposit the preSaleEthCollected to weth
             IWETH(weth).deposit{value: preSaleEth}();
         }
 
+        console.log("before mint params");
         INonfungiblePositionManager.MintParams
             memory params = INonfungiblePositionManager.MintParams(
                 token0,
@@ -218,13 +240,22 @@ contract LPFactory is AccessControl {
                 address(this),
                 block.timestamp
             );
+        console.log("Mint params created");
+        console.log("tickLower");
+        console.logInt(params.tickLower);   
+        console.log("tickUpper");
+        console.logInt(params.tickUpper);
+        console.log("amount0Desired: %s", params.amount0Desired);
+        console.log("amount1Desired: %s", params.amount1Desired);
         (positionId, , , ) = positionManager.mint(params);
+        console.log("Position minted: %s", positionId);
 
         positionManager.safeTransferFrom(
             address(this),
             address(liquidityLocker),
             positionId
         );
+        console.log("Position transferred to locker");
 
         liquidityLocker.addUserRewardRecipient(
             ILpLockerv2.UserRewardRecipient({
@@ -232,6 +263,7 @@ contract LPFactory is AccessControl {
                 lpTokenId: positionId
             })
         );
+        console.log("User reward recipient added");
     }
 
     function getTokensDeployedByUser(
