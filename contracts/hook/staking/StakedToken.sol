@@ -65,7 +65,8 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         rewardToken = stakeableToken; // TODO: change this?
         pool = IDistributionPool(_pool);
         lockDuration = _lockDuration;
-        // TODO: add 1 unit to protocolFeeRecipient so that it is never zero?
+        // @dev make sure there is always at least one unit
+        pool.updateMemberUnits(_defaultAdmin, 1);
     }
 
     function stake(address to, uint256 amount) external nonReentrant {

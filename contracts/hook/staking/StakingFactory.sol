@@ -60,7 +60,7 @@ contract StakingFactory is AccessControl {
         address stakedToken = Clones.cloneDeterministic(stakedTokenImplementation, salt);
 
         // @dev 2. Create a new distribition pool
-        (bool success, address pool) = gda.createPool(superTokenAddress, admin, config);
+        (bool success, address pool) = gda.createPool(superTokenAddress, stakedToken, config);
         require(success, "StakingFactory: failed to create pool");
 
         // TODO: prepend st to Symbol and prefix name?
@@ -75,13 +75,13 @@ contract StakingFactory is AccessControl {
         // @dev 5. Distribute the reward flow
         int96 flowRate = int96(uint96(amount)) / flowDuration;
         gda.distributeFlow(superTokenAddress, address(this), pool, flowRate, "");
-        emit StakedTokenCreated(stakedToken, stakeableToken, pool);
 
+        emit StakedTokenCreated(stakedToken, stakeableToken, pool);
         return stakedToken;
     }
 
-    function predictStakedTokenAddress(string memory symbol) external view returns (address) {
-        bytes32 salt = keccak256(abi.encode(msg.sender, symbol));
+    function predictStakedTokenAddress(address superTokenAddress) external view returns (address) {
+        bytes32 salt = keccak256(abi.encode(superTokenAddress));
         return Clones.predictDeterministicAddress(stakedTokenImplementation, salt);
     }   
 
