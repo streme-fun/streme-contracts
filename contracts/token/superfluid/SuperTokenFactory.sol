@@ -19,6 +19,8 @@ contract SuperTokenFactory is AccessControl {
     address public implementation;
     address public protocolFactory;
     address public weth = 0x4200000000000000000000000000000000000006;
+    bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
+
 
     event SuperTokenCreated(address superToken);
 
@@ -26,9 +28,17 @@ contract SuperTokenFactory is AccessControl {
         implementation = _implementation;
         protocolFactory = _protocolFactory;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _grantRole(DEPLOYER_ROLE, msg.sender);
     }
 
-    function deployToken(string memory _name, string memory _symbol, uint256 _supply, address _recipient, address _requestor, bytes32 _salt) external returns (address) {
+    function deployToken(
+        string memory _name, 
+        string memory _symbol, 
+        uint256 _supply, 
+        address _recipient, 
+        address _requestor, 
+        bytes32 _salt
+    ) external onlyRole(DEPLOYER_ROLE) returns (address) {
         bytes32 salt = keccak256(abi.encode(_requestor, _symbol, _salt));
         address superToken = Clones.cloneDeterministic(implementation, salt);
         emit SuperTokenCreated(superToken);

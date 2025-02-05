@@ -149,7 +149,7 @@ contract LPFactory is AccessControl {
         uint256 supplyPerPool,
         address deployer,
         uint256 presaleEth
-    ) public returns (uint256 positionId) {
+    ) public onlyRole(DEPLOYER_ROLE) returns (uint256 positionId) {
         console.log("Creating LP");
         token.transferFrom(msg.sender, address(this), supplyPerPool);
         console.log("Token balance: %s", token.balanceOf(address(this)));

@@ -38,6 +38,7 @@ interface IStakedToken {
 
 contract StakingFactory is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+    bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
     IGDAv1Forwarder public gda;
     address public stakedTokenImplementation;
     IGDAv1Forwarder.PoolConfig public config = IGDAv1Forwarder.PoolConfig(false, true);
@@ -57,7 +58,7 @@ contract StakingFactory is AccessControl {
     function hook(
         address stakeableToken,
         address admin
-    ) external returns (address) {
+    ) external onlyRole(DEPLOYER_ROLE) returns (address) {
         // @dev 1. Create a new staked token -- stakeableToken must be a super token
         //bytes32 salt = keccak256(abi.encode(msg.sender, symbol));
         // convert superTokenAddress to bytes32:
