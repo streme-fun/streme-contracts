@@ -4,7 +4,6 @@ pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-//import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IERC20 {
     function name() external view returns (string memory);

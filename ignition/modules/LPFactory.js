@@ -3,7 +3,7 @@ const { ethers } = require("hardhat");
 
 var lpFactory = ""; // Address of the LP factory
 const nftTokenAddress = "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2"; // BASE-Sepolia -- Address of the ERC721 Uniswap V3 LP NFT
-const teamRecipient = "0xF86Ec2b7D5d95990d61B9f6166775fb22003Cc09"; // Streme team address to receive portion of the fees
+const teamRecipient = process.env.STREME_TEAM_RECIPIENT; // Streme team address to receive portion of the fees
 const teamReward = 60; // streme team reward percentage
 
 // MANAGER_ROLE:

@@ -5,14 +5,7 @@ pragma solidity ^0.8.25;
 import "hardhat/console.sol";
 
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-//import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-//import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
-//import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-//import {TickMath} from "./TickMath.sol";
-
-//import {IClankerToken, ITokenFactory, INonfungiblePositionManager, IUniswapV3Factory, ILockerFactory, ILocker, ExactInputSingleParams, ISwapRouter} from "./interface.sol";
-//import {Bytes32AddressLib} from "./Bytes32AddressLib.sol";
 
 interface IStremeTokenFactory {
     function deployToken(string memory _name, string memory _symbol, uint256 _supply, address _recipient, address _requestor, bytes32 _salt) external returns (address);
@@ -44,9 +37,6 @@ interface IStremePostLPHook {
 }
 
 contract Streme is AccessControl {
-    //using TickMath for int24;
-    //using Bytes32AddressLib for bytes32;
-
     error Deprecated();
     error NotRegistered();
 
@@ -204,6 +194,17 @@ contract Streme is AccessControl {
 
     function setDeprecated(bool _deprecated) external onlyRole(MANAGER_ROLE) {
         deprecated = _deprecated;
+    }
+
+    // Withdraw ETH from the contract
+    function withdrawETH(address recipient) public onlyRole(MANAGER_ROLE) {
+        payable(recipient).transfer(address(this).balance);
+    }
+
+    // Withdraw ERC20 tokens from the contract
+    function withdrawERC20(address _token, address recipient) public onlyRole(MANAGER_ROLE) {
+        IERC20 IToken = IERC20(_token);
+        IToken.transfer(recipient, IToken.balanceOf(address(this)));
     }
 
 }

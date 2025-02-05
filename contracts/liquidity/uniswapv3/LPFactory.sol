@@ -4,11 +4,7 @@ pragma solidity ^0.8.26;
 // TODO: remove this
 import "hardhat/console.sol";
 
-//import {LpLockerv2} from "./LpLockerv2.sol";
-
-//import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-//import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -47,13 +43,6 @@ interface INonfungiblePositionManager {
             uint256 amount0,
             uint256 amount1
         );
-
-    function createAndInitializePoolIfNecessary(
-        address token0,
-        address token1,
-        uint24 fee,
-        uint160 sqrtPriceX96
-    ) external payable returns (address pool);
 
     function collect(
         CollectParams calldata params
@@ -97,11 +86,12 @@ interface IWETH {
 contract LPFactory is AccessControl {
     using TickMath for int24;
 
-    event LPLockerDeployed(
+    event LPCreated(
         address indexed lockerAddress,
-        address indexed owner,
-        uint256 tokenId,
-        uint256 lockingPeriod
+        address indexed deployer,
+        address indexed token,
+        address poolAddress,
+        uint256 tokenId
     );
     error Unauthorized();
     error NotFound();
@@ -148,7 +138,7 @@ contract LPFactory is AccessControl {
         uint24 fee,
         uint256 supplyPerPool,
         address deployer,
-        uint256 presaleEth
+        uint256 //** preSaleEth */
     ) public onlyRole(DEPLOYER_ROLE) returns (uint256 positionId) {
         console.log("Creating LP");
         token.transferFrom(msg.sender, address(this), supplyPerPool);

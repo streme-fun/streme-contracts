@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-import {IClankerToken, ILockerFactory} from "../../interface.sol";
+import {IClankerToken, ILockerFactory} from "./interface.sol";
 
 // TODO: remove or re-think locker factory bits of this contract
 

@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-//import "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/Context.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
@@ -41,8 +40,6 @@ contract LpLockerv2 is AccessControl, IERC721Receiver {
 
     // @dev LPFactory must be given MANAGER_ROLE
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
-    //IERC721 private SafeERC721;
-    //address private immutable e721Token;
     address public positionManager = 0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1;
     string public constant version = "0.0.2";
     uint256 public _teamReward;
@@ -69,8 +66,6 @@ contract LpLockerv2 is AccessControl, IERC721Receiver {
         address teamRecipient, // streme team address to receive portion of the fees
         uint256 teamReward // streme team reward percentage
     ) {
-        //SafeERC721 = IERC721(nftTokenAddress);
-        //e721Token = nftTokenAddress;
         positionManager = nftTokenAddress;
         _teamReward = teamReward;
         _teamRecipient = teamRecipient;
