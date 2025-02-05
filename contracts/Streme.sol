@@ -4,256 +4,189 @@ pragma solidity ^0.8.25;
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 //import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
+//import {Clones} from "@openzeppelin/contracts/proxy/Clones.sol";
 //import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
-import {TickMath} from "./TickMath.sol";
+//import {TickMath} from "./TickMath.sol";
 
-import {IClankerToken, ITokenFactory, INonfungiblePositionManager, IUniswapV3Factory, ILockerFactory, ILocker, ExactInputSingleParams, ISwapRouter} from "./interface.sol";
+//import {IClankerToken, ITokenFactory, INonfungiblePositionManager, IUniswapV3Factory, ILockerFactory, ILocker, ExactInputSingleParams, ISwapRouter} from "./interface.sol";
 //import {Bytes32AddressLib} from "./Bytes32AddressLib.sol";
 
+interface IStremeTokenFactory {
+    function deployToken(string memory _name, string memory _symbol, uint256 _supply, address _recipient, address _requestor, bytes32 _salt) external returns (address);
+    function predictToken(string memory _symbol, address _requestor, bytes32 _salt) external view returns (address);
+    function generateSalt(string memory _symbol, address _requestor) external view returns (bytes32 salt, address token);
+}
+
+interface IStremePostDeployHook {
+    function hook(
+        address stakeableToken,
+        address admin
+    ) external returns (address);
+}
+
+interface IStremeLiquidityFactory {
+    function createLP(
+        IERC20 token,
+        address pairedToken,
+        int24 tick,
+        uint24 fee,
+        uint256 supplyPerPool,
+        address deployer,
+        uint256 presaleEth
+    ) external returns (uint256 positionId);
+}
+
+interface IStremePostLPHook {
+    function hook(IERC20 token, address pairedToken, address deployer) payable external;
+}
+
 contract Streme is AccessControl {
-    using TickMath for int24;
+    //using TickMath for int24;
     //using Bytes32AddressLib for bytes32;
 
     error Deprecated();
 
-    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
-    bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
-
-    address public taxCollector;
-    uint64 public defaultLockingPeriod = 33275115461;
-    uint8 public taxRate = 25; // 25 / 1000 -> 2.5 %
-    uint8 public lpFeesCut = 50; // 5 / 100 -> 5%
-    uint8 public protocolCut = 30; // 3 / 100 -> 3%
-    ILockerFactory public liquidityLocker;
-
-    address public weth;
-    IUniswapV3Factory public uniswapV3Factory;
-    INonfungiblePositionManager public positionManager;
-    address public swapRouter;
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE"); // contract owner/manager
+    bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE"); // can deploy new tokens
 
     bool public deprecated;
-    bool public bundleFeeSwitch;
+    address public owner;
 
-    mapping(address => bool) public registeredTokenFactories;
+    mapping(address => bool) public tokenFactories;
+    mapping(address => bool) public postDelpoyHooks;
+    mapping(address => bool) public liquidityFactories;
+    mapping(address => bool) public postLPHooks;
+
+    struct PoolConfig {
+        int24 tick;
+        address pairedToken;
+        uint24 devBuyFee;
+    }
+
+    struct PreSaleTokenConfig {
+        string _name;
+        string _symbol;
+        uint256 _supply;
+        uint24 _fee;
+        bytes32 _salt;
+        address _deployer;
+        uint256 _fid;
+        string _image;
+        string _castHash;
+        PoolConfig _poolConfig;
+    }
 
     event TokenCreated(
         address tokenAddress,
-        uint256 lpNftId,
+        uint256 positionId,
         address deployer,
         uint256 fid,
         string name,
         string symbol,
         uint256 supply,
-        address lockerAddress,
         string castHash
     );
 
     constructor(
-        address defaultTokenFactory_,
-        address taxCollector_,
-        address weth_,
-        address locker_,
-        address uniswapV3Factory_,
-        address positionManager_,
-        uint64 defaultLockingPeriod_,
-        address swapRouter_,
         address owner_
     ) {
         _grantRole(DEFAULT_ADMIN_ROLE, owner_);
         _grantRole(MANAGER_ROLE, owner_);
         _grantRole(DEPLOYER_ROLE, owner_);
-        registeredTokenFactories[defaultTokenFactory_] = true;
-        taxCollector = taxCollector_;
-        weth = weth_;
-        liquidityLocker = ILockerFactory(locker_);
-        uniswapV3Factory = IUniswapV3Factory(uniswapV3Factory_);
-        positionManager = INonfungiblePositionManager(positionManager_);
-        defaultLockingPeriod = defaultLockingPeriod_;
-        swapRouter = swapRouter_;
+        owner = owner_;
     }
 
     function deployToken(
-        IClankerToken.TokenConfig memory config,
-        int24 _initialTick,
-        uint24 _fee,
-        bytes32 _salt,
-        address _tokenFactory
+        IStremeTokenFactory tokenFactory,
+        IStremePostDeployHook postDeployHook,
+        IStremeLiquidityFactory liquidityFactory,
+        IStremePostLPHook postLPHook,
+        PreSaleTokenConfig memory preSaleTokenConfig
     ) external payable onlyRole(DEPLOYER_ROLE) returns (address tokenAddress, uint256 tokenId) {
         if (deprecated) revert Deprecated();
 
-        int24 tickSpacing = uniswapV3Factory.feeAmountTickSpacing(_fee);
-
-        require(
-            tickSpacing != 0 && _initialTick % tickSpacing == 0,
-            "Invalid tick"
+        // @dev Module #1: Token Factory
+        address token = tokenFactory.deployToken(
+            preSaleTokenConfig._name,
+            preSaleTokenConfig._symbol,
+            preSaleTokenConfig._supply,
+            address(this),
+            preSaleTokenConfig._deployer,
+            preSaleTokenConfig._salt
         );
 
-        //token = new Token{salt: keccak256(abi.encode(_deployer, _salt))}(
-        //    _name,
-        //    _symbol,
-        //    _supply,
-        //    _deployer,
-        //    _fid,
-        //    _image,
-        //    _castHash
-        //);
-        //bytes32 salt = keccak256(abi.encode(config.deployer, _salt));
-        //token = IClankerToken(Clones.cloneDeterministic(clankerTokenImplementation, salt));
-        //token.initialize(config);
-        require(registeredTokenFactories[_tokenFactory], "Invalid factory");
-        tokenAddress = ITokenFactory(_tokenFactory).deployToken(config, _salt);
-        IERC20 token = IERC20(tokenAddress);
-
-        // Makes sure that the token address is less than the WETH address. This is so that the token
-        // is first in the pool. Just makes things consistent.
-        require(address(token) < weth, "Invalid salt");
-
-        uint160 sqrtPriceX96 = _initialTick.getSqrtRatioAtTick();
-        address pool = uniswapV3Factory.createPool(address(token), weth, _fee);
-        IUniswapV3Factory(pool).initialize(sqrtPriceX96);
-
-        INonfungiblePositionManager.MintParams
-            memory params = INonfungiblePositionManager.MintParams(
-                address(token),
-                weth,
-                _fee,
-                _initialTick,
-                maxUsableTick(tickSpacing),
-                token.balanceOf(address(this)), //config.supply,
-                0,
-                0,
-                0,
-                address(this),
-                block.timestamp
-            );
-
-        token.approve(address(positionManager), token.balanceOf(address(this)));
-        (tokenId, , , ) = positionManager.mint(params);
-
-        address lockerAddress = liquidityLocker.deploy(
-            address(positionManager),
-            config.deployer,
-            defaultLockingPeriod,
-            tokenId,
-            lpFeesCut
-        );
-
-        positionManager.safeTransferFrom(address(this), lockerAddress, tokenId);
-
-        ILocker(lockerAddress).initializer(tokenId);
-
-        if (msg.value > 0) {
-            uint256 remainingFundsToBuyTokens = msg.value;
-            if (bundleFeeSwitch) {
-                uint256 protocolFees = (msg.value * taxRate) / 1000;
-                remainingFundsToBuyTokens = msg.value - protocolFees;
-
-                (bool success, ) = payable(taxCollector).call{
-                    value: protocolFees
-                }("");
-
-                if (!success) {
-                    revert("Failed to send protocol fees");
-                }
-            }
-
-            ExactInputSingleParams memory swapParams = ExactInputSingleParams({
-                tokenIn: weth, // The token we are exchanging from (ETH wrapped as WETH)
-                tokenOut: address(token), // The token we are exchanging to
-                fee: _fee, // The pool fee
-                recipient: config.deployer, // The recipient address
-                amountIn: remainingFundsToBuyTokens, // The amount of ETH (WETH) to be swapped
-                amountOutMinimum: 0, // Minimum amount to receive
-                sqrtPriceLimitX96: 0 // No price limit
-            });
-
-            // The call to `exactInputSingle` executes the swap.
-            ISwapRouter(swapRouter).exactInputSingle{
-                value: remainingFundsToBuyTokens
-            }(swapParams);
+        // @dev Module #2: Post Deploy Hook
+        if (address(postDeployHook) != address(0)) {
+            // approve Hook for all tokens owned by this contract
+            IERC20(token).approve(address(postDeployHook), IERC20(token).balanceOf(address(this)));
+            address postDeployAddress = postDeployHook.hook(token, owner);
         }
 
+        // @dev Module #3: Liquidity Factory
+        IERC20(token).approve(address(liquidityFactory), IERC20(token).balanceOf(address(this)));
+        uint256 liquidityId = liquidityFactory.createLP(
+            IERC20(token),
+            preSaleTokenConfig._poolConfig.pairedToken,
+            preSaleTokenConfig._poolConfig.tick,
+            preSaleTokenConfig._poolConfig.devBuyFee,
+            preSaleTokenConfig._supply,
+            address(this),
+            0
+        );
+
+        // @dev Module #4: Post LP Hook
+        if (address(postLPHook) != address(0)) {
+            postLPHook.hook{value:msg.value}(IERC20(token), preSaleTokenConfig._poolConfig.pairedToken, preSaleTokenConfig._deployer);
+        }
+        
         emit TokenCreated(
             address(token),
-            tokenId,
-            config.deployer,
-            config.fid,
-            config.name,
-            config.symbol,
-            config.supply,
-            lockerAddress,
-            config.castHash
+            liquidityId,
+            preSaleTokenConfig._deployer,
+            preSaleTokenConfig._fid,
+            preSaleTokenConfig._name,
+            preSaleTokenConfig._symbol,
+            preSaleTokenConfig._supply,
+            preSaleTokenConfig._castHash
         );
-    }
-
-    function initialSwapTokens(address token, uint24 _fee) public payable {
-        ExactInputSingleParams memory swapParams = ExactInputSingleParams({
-            tokenIn: weth, // The token we are exchanging from (ETH wrapped as WETH)
-            tokenOut: address(token), // The token we are exchanging to
-            fee: _fee, // The pool fee
-            recipient: msg.sender, // The recipient address
-            amountIn: msg.value, // The amount of ETH (WETH) to be swapped
-            amountOutMinimum: 0, // Minimum amount of DAI to receive
-            sqrtPriceLimitX96: 0 // No price limit
-        });
-
-        // The call to `exactInputSingle` executes the swap.
-        ISwapRouter(swapRouter).exactInputSingle{value: msg.value}(swapParams);
     }
 
     function predictToken(
-        IClankerToken.TokenConfig memory config,
+        string memory _symbol,
+        address _requestor,
         bytes32 _salt,
         address _tokenFactory
     ) public view returns (address) {
-        address predictedTokenAddress = ITokenFactory(_tokenFactory).predictToken(config, _salt);
+        address predictedTokenAddress = IStremeTokenFactory(_tokenFactory).predictToken(_symbol, _requestor, _salt);
         return predictedTokenAddress;
     }
 
     function generateSalt(
-        IClankerToken.TokenConfig memory config,
+        string memory _symbol,
+        address _requestor,
         address _tokenFactory
     ) external view returns (bytes32 salt, address token) {
-        return ITokenFactory(_tokenFactory).generateSalt(config);
-    }
-
-    function toggleBundleFeeSwitch(bool _enabled) external onlyRole(MANAGER_ROLE) {
-        bundleFeeSwitch = _enabled;
+        return IStremeTokenFactory(_tokenFactory).generateSalt(_symbol, _requestor);
     }
 
     function registerTokenFactory(address factory, bool enabled) external onlyRole(MANAGER_ROLE) {
-        registeredTokenFactories[factory] = enabled;
+        tokenFactories[factory] = enabled;
+    }
+
+    function registerPostDeployHook(address hook, bool enabled) external onlyRole(MANAGER_ROLE) {
+        postDelpoyHooks[hook] = enabled;
+    }
+
+    function registerLiquidityFactory(address factory, bool enabled) external onlyRole(MANAGER_ROLE) {
+        liquidityFactories[factory] = enabled;
+    }
+
+    function registerPostLPHook(address hook, bool enabled) external onlyRole(MANAGER_ROLE) {
+        postLPHooks[hook] = enabled;
     }
 
     function setDeprecated(bool _deprecated) external onlyRole(MANAGER_ROLE) {
         deprecated = _deprecated;
     }
 
-    function updateTaxCollector(address newCollector) external onlyRole(MANAGER_ROLE) {
-        taxCollector = newCollector;
-    }
-
-    function updateLiquidityLocker(address newLocker) external onlyRole(MANAGER_ROLE) {
-        liquidityLocker = ILockerFactory(newLocker);
-    }
-
-    function updateDefaultLockingPeriod(uint64 newPeriod) external onlyRole(MANAGER_ROLE) {
-        defaultLockingPeriod = newPeriod;
-    }
-
-    function updateProtocolFees(uint8 newFee) external onlyRole(MANAGER_ROLE) {
-        lpFeesCut = newFee;
-    }
-
-    function updateTaxRate(uint8 newRate) external onlyRole(MANAGER_ROLE) {
-        taxRate = newRate;
-    }
-}
-
-/// @notice Given a tickSpacing, compute the maximum usable tick
-function maxUsableTick(int24 tickSpacing) pure returns (int24) {
-    unchecked {
-        return (TickMath.MAX_TICK / tickSpacing) * tickSpacing;
-    }
 }

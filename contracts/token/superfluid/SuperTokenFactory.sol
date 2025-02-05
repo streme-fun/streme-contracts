@@ -28,7 +28,7 @@ contract SuperTokenFactory is AccessControl {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function createSuperToken(string memory _name, string memory _symbol, uint256 _supply, address _recipient, address _requestor, bytes32 _salt) external returns (address) {
+    function deployToken(string memory _name, string memory _symbol, uint256 _supply, address _recipient, address _requestor, bytes32 _salt) external returns (address) {
         bytes32 salt = keccak256(abi.encode(_requestor, _symbol, _salt));
         address superToken = Clones.cloneDeterministic(implementation, salt);
         emit SuperTokenCreated(superToken);
@@ -40,7 +40,7 @@ contract SuperTokenFactory is AccessControl {
         bytes32 salt = keccak256(abi.encode(_requestor, _symbol, _salt));
         return Clones.predictDeterministicAddress(implementation, salt);
     }
-    function predictSuperTokenAddress(string memory _symbol, address _requestor, bytes32 _salt) external view returns (address) {
+    function predictToken(string memory _symbol, address _requestor, bytes32 _salt) external view returns (address) {
         return _predictSuperTokenAddress(_symbol, _requestor, _salt);
     }
 

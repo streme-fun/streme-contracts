@@ -4,7 +4,15 @@ pragma solidity ^0.8.15;
 
 import "@openzeppelin/contracts/proxy/Clones.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+//import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
+interface IERC20 {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+}
 
 interface IGDAv1Forwarder {
     struct PoolConfig {
@@ -35,7 +43,7 @@ contract StakingFactory is AccessControl {
     IGDAv1Forwarder.PoolConfig public config = IGDAv1Forwarder.PoolConfig(false, true);
     uint256 percentageForRewards = 20;
     int96 public flowDuration = 365 days;
-    // TODO: functions to set percentageForRewards and flowDuration
+    uint256 public lockDuration = 90 days;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
 
@@ -46,62 +54,61 @@ contract StakingFactory is AccessControl {
         stakedTokenImplementation = _stakedTokenImplementation;
     }
 
-    function createStakedToken(
-        string memory name,
-        string memory symbol,
+    function hook(
         address stakeableToken,
-        uint256 lockDuration,
-        address superTokenAddress,
         address admin
     ) external returns (address) {
-        // @dev 1. Create a new staked token
+        // @dev 1. Create a new staked token -- stakeableToken must be a super token
         //bytes32 salt = keccak256(abi.encode(msg.sender, symbol));
-        bytes32 salt = keccak256(abi.encode(superTokenAddress));
+        // convert superTokenAddress to bytes32:
+        bytes32 salt = keccak256(abi.encode(stakeableToken));
+        
         address stakedToken = Clones.cloneDeterministic(stakedTokenImplementation, salt);
 
         // @dev 2. Create a new distribition pool
-        (bool success, address pool) = gda.createPool(superTokenAddress, stakedToken, config);
+        (bool success, address pool) = gda.createPool(stakeableToken, stakedToken, config);
         require(success, "StakingFactory: failed to create pool");
 
-        // TODO: prepend st to Symbol and prefix name?
         // @dev 3. Initialize the staked token
+        string memory name = string(abi.encodePacked("Staked ", IERC20(stakeableToken).name()));
+        string memory symbol = string(abi.encodePacked("st", IERC20(stakeableToken).symbol()));
         IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration);
 
         // @dev 4. Transfer reward amount to this contract
-        uint256 allowance = IERC20(superTokenAddress).allowance(msg.sender, address(this));
+        uint256 allowance = IERC20(stakeableToken).allowance(msg.sender, address(this));
         uint256 amount = allowance * percentageForRewards / 100;
-        IERC20(superTokenAddress).transferFrom(msg.sender, address(this), amount);
+        IERC20(stakeableToken).transferFrom(msg.sender, address(this), amount);
 
         // @dev 5. Distribute the reward flow
         int96 flowRate = int96(uint96(amount)) / flowDuration;
-        gda.distributeFlow(superTokenAddress, address(this), pool, flowRate, "");
-
+        gda.distributeFlow(stakeableToken, address(this), pool, flowRate, "");
         emit StakedTokenCreated(stakedToken, stakeableToken, pool);
+
         return stakedToken;
     }
 
-    function predictStakedTokenAddress(address superTokenAddress) external view returns (address) {
-        bytes32 salt = keccak256(abi.encode(superTokenAddress));
+    function predictStakedTokenAddress(address stakeableToken) external view returns (address) {
+        bytes32 salt = keccak256(abi.encode(stakeableToken));
         return Clones.predictDeterministicAddress(stakedTokenImplementation, salt);
     }   
 
-    function setPercentageForRewards(uint256 _percentageForRewards) external {
-        require(hasRole(MANAGER_ROLE, msg.sender), "StakingFactory: must have manager role to set percentage for rewards");
+    function setPercentageForRewards(uint256 _percentageForRewards) external onlyRole(MANAGER_ROLE) {
         percentageForRewards = _percentageForRewards;
     }
 
-    function setFlowDuration(int96 _flowDuration) external {
-        require(hasRole(MANAGER_ROLE, msg.sender), "StakingFactory: must have manager role to set flow duration");
+    function setFlowDuration(int96 _flowDuration) external onlyRole(MANAGER_ROLE) {
         flowDuration = _flowDuration;
     }
 
-    function setGDA(IGDAv1Forwarder _gda) external {
-        require(hasRole(MANAGER_ROLE, msg.sender), "StakingFactory: must have manager role to set GDA");
+    function setLockDuration(uint256 _lockDuration) external onlyRole(MANAGER_ROLE) {
+        lockDuration = _lockDuration;
+    }
+
+    function setGDA(IGDAv1Forwarder _gda) external onlyRole(MANAGER_ROLE) {
         gda = _gda;
     }
 
-    function setStakedTokenImplementation(address _stakedTokenImplementation) external {
-        require(hasRole(MANAGER_ROLE, msg.sender), "StakingFactory: must have manager role to set staked token implementation");
+    function setStakedTokenImplementation(address _stakedTokenImplementation) external onlyRole(MANAGER_ROLE) {
         stakedTokenImplementation = _stakedTokenImplementation;
     }
     
