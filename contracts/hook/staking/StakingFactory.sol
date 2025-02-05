@@ -27,12 +27,13 @@ interface IGDAv1Forwarder {
 
 interface IStakedToken {
     function initialize(
-       address _defaultAdmin, 
-       string memory _name, 
-       string memory _symbol, 
-       address _stakeableToken, 
-       address _pool, 
-       uint256 _lockDuration
+        address _defaultAdmin, 
+        string memory _name, 
+        string memory _symbol, 
+        address _stakeableToken, 
+        address _pool, 
+        uint256 _lockDuration,
+        address _teamRecipient
     ) external;
 }
 
@@ -45,14 +46,16 @@ contract StakingFactory is AccessControl {
     uint256 percentageForRewards = 20;
     int96 public flowDuration = 365 days;
     uint256 public lockDuration = 90 days;
+    address public teamRecipient;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
 
-    constructor(IGDAv1Forwarder _gda, address _stakedTokenImplementation) {
+    constructor(IGDAv1Forwarder _gda, address _stakedTokenImplementation, address _teamRecipient) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         gda = _gda;
         stakedTokenImplementation = _stakedTokenImplementation;
+        teamRecipient = _teamRecipient;
     }
 
     function hook(
@@ -73,7 +76,7 @@ contract StakingFactory is AccessControl {
         // @dev 3. Initialize the staked token
         string memory name = string(abi.encodePacked("Staked ", IERC20(stakeableToken).name()));
         string memory symbol = string(abi.encodePacked("st", IERC20(stakeableToken).symbol()));
-        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration);
+        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration, teamRecipient);
 
         // @dev 4. Transfer reward amount to this contract
         uint256 allowance = IERC20(stakeableToken).allowance(msg.sender, address(this));
