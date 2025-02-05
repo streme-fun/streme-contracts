@@ -35,6 +35,11 @@ module.exports = {
       url: API_URL_BASE,
       accounts: [`0x${PRIVATE_KEY}`]
     },
+    sepolia: {
+      url: API_URL_SEPOLIA,
+      accounts: [`0x${PRIVATE_KEY}`],
+      gasPrice: 1000000000 * 10,
+    },
     degen: {
       url: API_URL_DEGEN,
       accounts: [`0x${PRIVATE_KEY}`]
@@ -43,6 +48,7 @@ module.exports = {
    etherscan: {
     apiKey: {
       baseSepolia: BASESCAN_API_KEY,
+      sepolia: BASESCAN_API_KEY,
       base: BASESCAN_API_KEY,
       degen: 'empty'
     },
