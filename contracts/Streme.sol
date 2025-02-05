@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+// TODO: remove this
+import "hardhat/console.sol";
+
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 //import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
@@ -45,6 +48,7 @@ contract Streme is AccessControl {
     //using Bytes32AddressLib for bytes32;
 
     error Deprecated();
+    error NotRegistered();
 
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE"); // contract owner/manager
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE"); // can deploy new tokens
@@ -102,11 +106,17 @@ contract Streme is AccessControl {
         IStremeLiquidityFactory liquidityFactory,
         IStremePostLPHook postLPHook,
         PreSaleTokenConfig memory preSaleTokenConfig
-    ) external payable onlyRole(DEPLOYER_ROLE) returns (address tokenAddress, uint256 tokenId) {
+    ) external payable onlyRole(DEPLOYER_ROLE) returns (address token, uint256 liquidityId) {
         if (deprecated) revert Deprecated();
+        if (!tokenFactories[address(tokenFactory)]) revert NotRegistered();
+        if (address(postDeployHook) != address(0) && !postDelpoyHooks[address(postDeployHook)]) revert NotRegistered();
+        if (!liquidityFactories[address(liquidityFactory)]) revert NotRegistered();
+        if (address(postLPHook) != address(0) && !postLPHooks[address(postLPHook)]) revert NotRegistered();
+
+        console.log("after checks");
 
         // @dev Module #1: Token Factory
-        address token = tokenFactory.deployToken(
+        token = tokenFactory.deployToken(
             preSaleTokenConfig._name,
             preSaleTokenConfig._symbol,
             preSaleTokenConfig._supply,
@@ -115,24 +125,31 @@ contract Streme is AccessControl {
             preSaleTokenConfig._salt
         );
 
+        console.log("after token factory: token=%s", token);
+
         // @dev Module #2: Post Deploy Hook
         if (address(postDeployHook) != address(0)) {
+            console.log("we have a post deploy hook");
             // approve Hook for all tokens owned by this contract
             IERC20(token).approve(address(postDeployHook), IERC20(token).balanceOf(address(this)));
+            console.log("token approved");
             address postDeployAddress = postDeployHook.hook(token, owner);
+            console.log("post deploy address=%s", postDeployAddress);
         }
 
         // @dev Module #3: Liquidity Factory
         IERC20(token).approve(address(liquidityFactory), IERC20(token).balanceOf(address(this)));
-        uint256 liquidityId = liquidityFactory.createLP(
+        console.log("token approved for liquidity factory");
+        liquidityId = liquidityFactory.createLP(
             IERC20(token),
             preSaleTokenConfig._poolConfig.pairedToken,
             preSaleTokenConfig._poolConfig.tick,
             preSaleTokenConfig._poolConfig.devBuyFee,
-            preSaleTokenConfig._supply,
+            IERC20(token).balanceOf(address(this)),
             address(this),
             0
         );
+        console.log("liquidity id=%s", liquidityId);
 
         // @dev Module #4: Post LP Hook
         if (address(postLPHook) != address(0)) {
