@@ -2,7 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 
 const dot = require('dotenv').config();
 
-const { PRIVATE_KEY, API_URL_BASESEPOLIA, API_URL_SEPOLIA, API_URL_BASE, API_URL_DEGEN, BASESCAN_API_KEY} = process.env;
+const { PRIVATE_KEY, API_URL_BASESEPOLIA, API_URL_SEPOLIA, API_URL_BASE, API_URL_DEGEN, BASESCAN_API_KEY, ETHERSCAN_API_KEY} = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -48,7 +48,7 @@ module.exports = {
    etherscan: {
     apiKey: {
       baseSepolia: BASESCAN_API_KEY,
-      sepolia: BASESCAN_API_KEY,
+      sepolia: ETHERSCAN_API_KEY,
       base: BASESCAN_API_KEY,
       degen: 'empty'
     },

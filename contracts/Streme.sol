@@ -10,7 +10,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 interface IStremeTokenFactory {
     function deployToken(string memory _name, string memory _symbol, uint256 _supply, address _recipient, address _requestor, bytes32 _salt) external returns (address);
     function predictToken(string memory _symbol, address _requestor, bytes32 _salt) external view returns (address);
-    function generateSalt(string memory _symbol, address _requestor) external view returns (bytes32 salt, address token);
+    function generateSalt(string memory _symbol, address _requestor, address pairedToken) external view returns (bytes32 salt, address token);
 }
 
 interface IStremePostDeployHook {
@@ -171,9 +171,10 @@ contract Streme is AccessControl {
     function generateSalt(
         string memory _symbol,
         address _requestor,
-        address _tokenFactory
+        address _tokenFactory,
+        address _pairedToken
     ) external view returns (bytes32 salt, address token) {
-        return IStremeTokenFactory(_tokenFactory).generateSalt(_symbol, _requestor);
+        return IStremeTokenFactory(_tokenFactory).generateSalt(_symbol, _requestor, _pairedToken);
     }
 
     function registerTokenFactory(address factory, bool enabled) external onlyRole(MANAGER_ROLE) {

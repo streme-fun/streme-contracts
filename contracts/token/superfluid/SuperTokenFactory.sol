@@ -54,11 +54,11 @@ contract SuperTokenFactory is AccessControl {
         return _predictSuperTokenAddress(_symbol, _requestor, _salt);
     }
 
-    function generateSalt(string memory _symbol, address _requestor) external view returns (bytes32 salt, address token) {
+    function generateSalt(string memory _symbol, address _requestor, address pairedToken) external view returns (bytes32 salt, address token) {
         for (uint256 i; ; i++) {
             salt = bytes32(i);
             token = _predictSuperTokenAddress(_symbol, _requestor, salt);
-            if (token < weth) {
+            if (token < pairedToken) {
                 break;
             }
         }

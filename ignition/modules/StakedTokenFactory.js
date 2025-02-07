@@ -29,4 +29,4 @@ module.exports = buildModule("StakedTokenFactoryModule", (m) => {
 });
 
 // npx hardhat ignition deploy ignition/modules/StakedTokenFactory.js --network baseSepolia --deployment-id stake-factory-one
-// npx hardhat ignition deploy ignition/modules/StakedTokenFactory.js --network sepolia --deployment-id stake-factory-one
+// npx hardhat ignition deploy ignition/modules/StakedTokenFactory.js --network sepolia --deployment-id stake-factory-sep-one

@@ -6,6 +6,28 @@ const {
   const { expect } = require("chai");
   // ethers constants
   const { ethers } = require("hardhat");
+
+  const chain = hre.network.name;
+  console.log("chain: ", chain);
+
+    var addr = {};
+    if (chain == "baseSepolia") {
+        addr.pairedToken = "0x4200000000000000000000000000000000000006"; // weth
+        addr.tokenFactory = process.env.STREME_SUPER_TOKEN_FACTORY;
+        addr.postDeployFactory = process.env.STREME_STAKING_FACTORY;
+        addr.lpFactory = process.env.STREME_LP_FACTORY;
+        addr.streme = process.env.STREME;
+    } else if (chain == "sepolia") {
+        addr.pairedToken = "0xfff9976782d46cc05630d1f6ebab18b2324d6b14", // weth
+        addr.tokenFactory = process.env.SEP_STREME_SUPER_TOKEN_FACTORY;
+        addr.postDeployFactory = process.env.SEP_STREME_STAKING_FACTORY;
+        addr.lpFactory = process.env.SEP_STREME_LP_FACTORY;
+        addr.streme = process.env.SEP_STREME;
+    } else {
+        console.log("chain not supported");
+        return;
+    }
+
   
   describe("Streme", function () {
     // We define a fixture to reuse the same setup in every test.
@@ -24,11 +46,11 @@ const {
         const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
         const poolConfig = {
             "tick": -230400,
-            "pairedToken": "0x4200000000000000000000000000000000000006",
+            "pairedToken": addr.pairedToken,
             "devBuyFee": 10000
         };
         const tokenConfig = {
-            "_name": "First Token",
+            "_name": "First Streme Coin",
             "_symbol": "FIRST",
             "_supply": ethers.parseEther("100000000000"), // 100 billion
             "_fee": 10000,
@@ -40,12 +62,14 @@ const {
             "_poolConfig": poolConfig
         };
         var salt, tokenAddress;
-        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], process.env.STREME_SUPER_TOKEN_FACTORY);
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
         salt = result[0];
         tokenAddress = result[1];
         console.log("Salt: ", salt);
         tokenConfig["_salt"] = salt;
-        await streme.deployToken(process.env.STREME_SUPER_TOKEN_FACTORY, process.env.STREME_STAKING_FACTORY, process.env.STREME_LP_FACTORY, ethers.ZeroAddress, tokenConfig);
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
         console.log("Token Address: ", tokenAddress);
         expect(tokenAddress).to.not.be.empty;
       }); // end it

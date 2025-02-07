@@ -48,6 +48,10 @@ contract StakingFactory is AccessControl {
     address public teamRecipient;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
+    /**
+     *  @dev The lock duration has been updated
+     */
+    event LockDurationUpdated(uint256 duration);
 
     constructor(IGDAv1Forwarder _gda, address _stakedTokenImplementation, address _teamRecipient) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -105,6 +109,7 @@ contract StakingFactory is AccessControl {
 
     function setLockDuration(uint256 _lockDuration) external onlyRole(MANAGER_ROLE) {
         lockDuration = _lockDuration;
+        emit LockDurationUpdated(_lockDuration);
     }
 
     function setGDA(IGDAv1Forwarder _gda) external onlyRole(MANAGER_ROLE) {
