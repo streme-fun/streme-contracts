@@ -2,7 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 
 const dot = require('dotenv').config();
 
-const { PRIVATE_KEY, API_URL_BASESEPOLIA, API_URL_SEPOLIA, API_URL_BASE, API_URL_DEGEN, BASESCAN_API_KEY, ETHERSCAN_API_KEY} = process.env;
+const { PRIVATE_KEY, API_URL_BASESEPOLIA, API_URL_SEPOLIA, API_URL_BASE, API_URL_DEGEN, BASESCAN_API_KEY, ETHERSCAN_API_KEY, PRIVATE_KEY_STREME_DEPLOYER} = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -33,7 +33,8 @@ module.exports = {
     },
     base: {
       url: API_URL_BASE,
-      accounts: [`0x${PRIVATE_KEY}`]
+      accounts: [`0x${PRIVATE_KEY_STREME_DEPLOYER}`],
+      gasMultiplier: 2,
     },
     sepolia: {
       url: API_URL_SEPOLIA,

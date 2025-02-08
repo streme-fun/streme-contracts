@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 // TODO: remove this
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
@@ -103,7 +103,7 @@ contract Streme is AccessControl {
         if (!liquidityFactories[address(liquidityFactory)]) revert NotRegistered();
         if (address(postLPHook) != address(0) && !postLPHooks[address(postLPHook)]) revert NotRegistered();
 
-        console.log("after checks");
+        //console.log("after checks");
 
         // @dev Module #1: Token Factory
         token = tokenFactory.deployToken(
@@ -115,21 +115,21 @@ contract Streme is AccessControl {
             preSaleTokenConfig._salt
         );
 
-        console.log("after token factory: token=%s", token);
+        //console.log("after token factory: token=%s", token);
 
         // @dev Module #2: Post Deploy Hook
         if (address(postDeployHook) != address(0)) {
-            console.log("we have a post deploy hook");
+            //console.log("we have a post deploy hook");
             // approve Hook for all tokens owned by this contract
             IERC20(token).approve(address(postDeployHook), IERC20(token).balanceOf(address(this)));
-            console.log("token approved");
+            //console.log("token approved");
             address postDeployAddress = postDeployHook.hook(token, owner);
-            console.log("post deploy address=%s", postDeployAddress);
+            //console.log("post deploy address=%s", postDeployAddress);
         }
 
         // @dev Module #3: Liquidity Factory
         IERC20(token).approve(address(liquidityFactory), IERC20(token).balanceOf(address(this)));
-        console.log("token approved for liquidity factory");
+        //console.log("token approved for liquidity factory");
         liquidityId = liquidityFactory.createLP(
             IERC20(token),
             preSaleTokenConfig._poolConfig.pairedToken,
@@ -139,7 +139,7 @@ contract Streme is AccessControl {
             address(this),
             0
         );
-        console.log("liquidity id=%s", liquidityId);
+        //console.log("liquidity id=%s", liquidityId);
 
         // @dev Module #4: Post LP Hook
         if (address(postLPHook) != address(0)) {

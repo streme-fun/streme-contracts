@@ -27,5 +27,6 @@ module.exports = buildModule("SuperTokenFactoryModule", (m) => {
   return { factory };
 });
 
-// npx hardhat ignition deploy ignition/modules/SuperTokenFactory.js --network baseSepolia --deployment-id super-factory-one
+// npx hardhat ignition deploy ignition/modules/SuperTokenFactory.js --network baseSepolia --deployment-id super-factory-new-one
 // npx hardhat ignition deploy ignition/modules/SuperTokenFactory.js --network sepolia --deployment-id super-factory-sepolia-one
+// npx hardhat ignition deploy ignition/modules/SuperTokenFactory.js --network base --deployment-id super-factory-base-one

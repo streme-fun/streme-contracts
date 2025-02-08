@@ -28,19 +28,23 @@ if (chain == "degen") {
   return;
 }
 
-module.exports = buildModule("LPFactoryModule", (m) => {
-  const locker = m.contract("LpLockerv2", [addr.nftTokenAddress, teamRecipient, teamReward]);
-  console.log(`npx hardhat verify --network ${chain} ${locker.address} ${addr.nftTokenAddress} ${teamRecipient} ${teamReward}`);
-  const factory = m.contract("LPFactory", [addr.uniswapV3Factory, addr.nftTokenAddress, locker], {
-    after: [locker]
-  });
-  m.call(locker, "grantRole", [managerRole, factory], {
-    after: [factory]
-  });
-  console.log(`npx hardhat verify --network ${chain} ${factory.address} ${addr.uniswapV3Factory} ${addr.nftTokenAddress} ${locker.address}`);
+const deployedLocker = "0xc54cb94E91c767374a2F23f0F2cEd698921AE22a";
 
-  return { locker, factory };
+module.exports = buildModule("LPFactoryModule", (m) => {
+  //const locker = m.contract("LpLockerv2", [addr.nftTokenAddress, teamRecipient, teamReward]);
+  //console.log(`npx hardhat verify --network ${chain} ${locker.address} ${addr.nftTokenAddress} ${teamRecipient} ${teamReward}`);
+  //const factory = m.contract("LPFactory", [addr.uniswapV3Factory, addr.nftTokenAddress, locker], {
+  //  after: [locker]
+  //});
+  const factory = m.contract("LPFactory", [addr.uniswapV3Factory, addr.nftTokenAddress, deployedLocker]);
+  //m.call(locker, "grantRole", [managerRole, factory], {
+  //  after: [factory]
+  //});
+  console.log(`npx hardhat verify --network ${chain} ${factory.address} ${addr.uniswapV3Factory} ${addr.nftTokenAddress} ${deployedLocker}`);
+
+  return {  factory };
 });
 
-// npx hardhat ignition deploy ignition/modules/LPFactory.js --network baseSepolia --deployment-id lp-factory-three
-// npx hardhat ignition deploy ignition/modules/LPFactory.js --network sepolia --deployment-id lp-factory-one
+// npx hardhat ignition deploy ignition/modules/LPFactory.js --network baseSepolia --deployment-id lp-factory-new-one
+// npx hardhat ignition deploy ignition/modules/LPFactory.js --network sepolia --deployment-id lp-factory-sep-one
+// npx hardhat ignition deploy ignition/modules/LPFactory.js --network base --deployment-id lp-factory-base-one

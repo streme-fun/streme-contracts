@@ -28,5 +28,6 @@ module.exports = buildModule("StakedTokenFactoryModule", (m) => {
   return { staked, factory };
 });
 
-// npx hardhat ignition deploy ignition/modules/StakedTokenFactory.js --network baseSepolia --deployment-id stake-factory-one
+// npx hardhat ignition deploy ignition/modules/StakedTokenFactory.js --network baseSepolia --deployment-id stake-factory-new-one
 // npx hardhat ignition deploy ignition/modules/StakedTokenFactory.js --network sepolia --deployment-id stake-factory-sep-one
+// npx hardhat ignition deploy ignition/modules/StakedTokenFactory.js --network base --deployment-id stake-factory-base-one

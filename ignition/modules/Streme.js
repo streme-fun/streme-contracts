@@ -16,8 +16,9 @@ if (chain == "degen") {
   addr.postDeployFactory = process.env.SEP_STREME_STAKING_FACTORY;
   addr.lpFactory = process.env.SEP_STREME_LP_FACTORY;
 } else if (chain == "base") {
-  console.log("chain not supported yet");
-  return;
+  addr.tokenFactory = process.env.STREME_SUPER_TOKEN_FACTORY;
+  addr.postDeployFactory = process.env.STREME_STAKING_FACTORY;
+  addr.lpFactory = process.env.STREME_LP_FACTORY;
 } else {
   console.log("chain not supported");
   return;
@@ -34,3 +35,4 @@ module.exports = buildModule("StremeModule", (m) => {
 
 // npx hardhat ignition deploy ignition/modules/Streme.js --network baseSepolia --deployment-id streme-new-one
 // npx hardhat ignition deploy ignition/modules/Streme.js --network sepolia --deployment-id streme-sep-one
+// npx hardhat ignition deploy ignition/modules/Streme.js --network base --deployment-id streme-base-one
