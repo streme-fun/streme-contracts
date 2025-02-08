@@ -1,4 +1,5 @@
 # Streme.fun
+![Streme Logo](https://api.streme.fun/images/streme-logo.png)
 
 Streme.fun is **AI Agent** token launcher that deploys native streaming tokens (powered by Superfluid) with built-in streaming staking rewards and liquidity provision.
 
