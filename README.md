@@ -35,7 +35,7 @@ The @streme AI agent is the primary user interface to the Streme protocol. The s
 ![Streme AI Agent](https://api.streme.fun/images/streme-ai-example.png)
 
 For token discovery and exposure outside of the Farcaster ecosystem, the streme.fun website provides listings and leaderboard of Streme coins with stats on trading and staking rewards. Find tokens to buy, find tokens to stake and earn yield.
-
+![Streme Website](https://api.streme.fun/images/streme-homepage.gif)
 
 ## Contracts Overview
 
