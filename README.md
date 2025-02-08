@@ -38,6 +38,22 @@ The @streme AI agent is the primary user interface to the Streme protocol. The s
 For token discovery and exposure outside of the Farcaster ecosystem, the streme.fun website provides listings and leaderboard of Streme coins with stats on trading and staking rewards. Find tokens to buy, find tokens to stake and earn yield.
 ![Streme Website](https://api.streme.fun/images/streme-homepage.gif)
 
+## How Streme was Built
+
+Streme consists of the following components:
+
+- AI Agent interface (and related server processes and datastore)
+- Web frontend: https://streme.fun
+- Smart Contracts deployed to Base
+
+![Streme Tech Diagram](https://api.streme.fun/images/streme-diagram.png)
+
+## AI Agent: @streme
+
+The @streme AI Agent is powered by `Coinbase AgentKit` and `OpenAI` and deployed by `Autonome`. Users interact with the AI Agent via the @streme user on Farcaster. In future, interfacing via X and Telegram is planned. The AI agent can answer questions about Streme and ask it to deploy tokens on their behalf. The user's message request is combined details from their Farcaster profile -- including their verified Ethereum address -- to deploy a token with their chosen name and symbol, to Base Mainnet. The requesting user will earn 40% of the trading fees.
+
+The server components of Streme are hosted by Google Firebase Functions, with indexed token data store in a Firestore datastore. An API endpoint receives new Farcaster messages from a webhook susbcription provided by `Neynar`.
+
 ## Contracts Overview
 
 Streme has a modular contract structure with 4 modules in sequence:
