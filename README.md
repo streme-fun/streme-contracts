@@ -32,7 +32,7 @@ As time passed, multiple seasons of Streme will introduce new parameters and/or 
 
 ### Streme User Interfaces
 The @streme AI agent is the primary user interface to the Streme protocol. The social feed makes interacting easy and exposes the tokens to followers of the deployer. Farcaster frames inject fuctionality directly into the social feed, facilating swapping and staking. This is where most of the fun happens.
-![Steme AI Agent](https://api.streme.fun/images/streme-ai-example.png)
+![Streme AI Agent](https://api.streme.fun/images/streme-ai-example.png)
 
 For token discovery and exposure outside of the Farcaster ecosystem, the streme.fun website provides listings and leaderboard of Streme coins with stats on trading and staking rewards. Find tokens to buy, find tokens to stake and earn yield.
 
