@@ -1,8 +1,19 @@
 # Streme.fun
 
-A AI Agent token launcher that deploys native streaming tokens (powered by Superfluid) with built-in staking and liquidity provision.
+Streme.fun is AI Agent token launcher that deploys native streaming tokens (powered by Superfluid) with built-in staking and liquidity provision.
 
-## Contract Overview
+## Code Repositories
+
+**This is only one of the code repos for this project!** Here are all the Streme repos:
+
+- `streme-contracts` (this repo) includes the contracts deployed as part of the Streme protocol
+- `streme-frontend` includes the frontend ocde for the streme.fun website and Farcaster frames. https://github.com/streme-fun/streme-frontend
+- `streme-server` includes server-based code powering the AI agent, token deployment, indexing, and a REST API https://github.com/streme-fun/streme-server
+
+Each of the above will be described in more detail below.
+
+
+## Contracts Overview
 
 Streme has a modular contract structure with 4 modules in sequence:
 
