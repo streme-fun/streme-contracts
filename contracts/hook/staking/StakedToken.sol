@@ -17,7 +17,7 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
     IERC20 public stakeableToken;
     mapping(address account => uint256) public depositTimestamps;
     IDistributionPool public pool;
-    uint256 public unitDecimals = 18;
+    uint256 public unitDecimals;
 
     /**
      * @dev Lock duration in seconds, period starts after the deposit timestamp
@@ -71,8 +71,10 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         stakeableToken = IERC20(_stakeableToken);
         pool = IDistributionPool(_pool);
         lockDuration = _lockDuration;
+        unitDecimals = 18;
         // @dev make sure there is always at least one unit
         pool.updateMemberUnits(_teamRecipient, 1);
+
     }
 
     function stake(address to, uint256 amount) external nonReentrant {
