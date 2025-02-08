@@ -44,7 +44,7 @@ contract StakingFactory is AccessControl {
     IGDAv1Forwarder.PoolConfig public config = IGDAv1Forwarder.PoolConfig(false, true);
     uint256 percentageForRewards = 20;
     int96 public flowDuration = 365 days;
-    uint256 public lockDuration = 90 days;
+    uint256 public lockDuration = 1 days;
     address public teamRecipient;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
