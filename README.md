@@ -10,7 +10,7 @@ Streme.fun is **AI Agent** token launcher that deploys native streaming tokens (
 ## Code Repositories
 **This is only one of the code repos for this project!** Here are all the Streme repos:
 
-- `streme-contracts` (this repo) includes the contracts deployed as part of the Streme protocol
+- `streme-contracts` includes the contracts deployed as part of the Streme protocol. https://github.com/streme-fun/streme-contracts
 - `streme-frontend` includes the frontend ocde for the streme.fun website and Farcaster frames. https://github.com/streme-fun/streme-frontend
 - `streme-server` includes server-based code powering the AI agent, token deployment, indexing, and a REST API https://github.com/streme-fun/streme-server
 
@@ -87,6 +87,17 @@ _The above contracts use interfaces, npm modules, and open-source code from Open
 ## Streme.fun Web Interface
 The [streme.fub](https://streme.fun) web interface provided token discovery for traders and interfacs to trade and stake/unstake Streme coins. Hosted by `Vercel`, the web UI is built with Next.js, React, Viem, wagmi, and uses `Privy` for Ethereum wallet connections and `0x` behind the scenes to enable trading of Streme coins.
 ![Streme.fun web UI](https://api.streme.fun/images/streme-ui-token.png)
+
+## Example Streme Coin: $STREME
+
+- $STREME contract: https://basescan.org/address/0x3b3cd21242ba44e9865b066e5ef5d1cc1030cc58
+- $stSTREME staking contract: https://basescan.org/address/0x93419f1c0f73b278c73085c17407794a6580deff
+- staking rewards pool: https://explorer.superfluid.finance/base-mainnet/pools/0xa040a8564C433970D7919C441104B1d25b9eAa1c
+- Uniswap: https://app.uniswap.org/explore/tokens/base/0x3b3cd21242ba44e9865b066e5ef5d1cc1030cc58
+- DEXScreener: https://dexscreener.com/base/0x9187c24a3a81618f07a9722b935617458f532737
+![STREME on DEXScreener](https://api.streme.fun/images/streme-dexscreener.png)
+![Streme Staking Rewards](https://api.streme.fun/images/streme-staking-pool.gif)
+
 
 ## ETHGlobal Agentic Ethereum Sponsor Tech
 Streme.fun is a submission to the [Agentic Ethereum](https://ethglobal.com/events/agents) hackathon by ETHGlobal in Feb 2025. Tech from the following hackathon sponsors was used:
