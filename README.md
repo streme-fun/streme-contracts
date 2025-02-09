@@ -3,6 +3,10 @@
 
 Streme.fun is **AI Agent** token launcher that deploys native streaming tokens (powered by Superfluid) with built-in streaming staking rewards and liquidity provision.
 
+## Quick Links
+- ETH Global Showcase: TBD
+- Streme Demo Video: TBD
+
 ## Code Repositories
 **This is only one of the code repos for this project!** Here are all the Streme repos:
 
@@ -75,5 +79,40 @@ The following smart contracts have been deployed to `Base Mainnet`:
 - `StakedToken.sol` - Implementation contract for staking of Streme coins. Stakers receive these tokens 1:1 for their desposits. This contract also enforced a _lock duration_, which can be set for zero or more seconds (set to 1 day for Season One). Upon _transfer_ -- include mint/burn -- this contract updates shares in the rewards pool, proportional to their staked deposits (see more below). Deployed at [0x2a6cdcB9384FA02AA99D141fa37019Cda284250e](https://basescan.org/address/0x2a6cdcB9384FA02AA99D141fa37019Cda284250e)
 - `SuperfluidPool` - Also know as a General Distribution Agreement Pool, a SuperfluidPool is deployed via the Superfluid protocol, to be used by the Streme Staking contracts for streaming rewards for stakers. Stakers are given shares ("units") in the pool proportional to their staked deposits. If you own hold 50% of the units, you will receive 50% of the total stream to the pool, with your balance updating every second. Note: the code for this contract is open-source code writted by the Superfluid Protocol team, which can be found [here](https://github.com/superfluid-finance/protocol-monorepo/blob/dev/packages/ethereum-contracts/contracts/agreements/gdav1/SuperfluidPool.sol)
 - `StakingFactory.sol` - In Season One, this contract is called as the Post Deploy Hook. For each Streme coin deployment, it deploys two contracts: 1) a `SuperfluidPool` as described above that powers membership and streaming rewards for stakers, and 2) a `StakedToken` contract by cloning the implementation above. For a Streme coin with the symbol `COIN`, the staked token will be given the symbol `stCOIN`. The StakedToken contract has functions for `stake` and `unstake` (if you stake `1000 COIN`, you get `1000 stCOIN`). As mentioned above, in Season One there is a one day locking duration for staked deposits -- in future seasons this may be increased or decreased. Deployed at [0x293A5d47f5D76244b715ce0D0e759E0227349486](https://basescan.org/address/0x293a5d47f5d76244b715ce0d0e759e0227349486)
-- `LpLockerv2.sol` - This _LP Locker_ contract holds the locked LP positions of all Uniswap v3 positions deployed by the `LP Factory` contract (see below). This contract also provides functions for claiming trading fees related to the LP positions. This contract has been modified from open source code written by the `Clanker` team. Deployed at [0xc54cb94e91c767374a2f23f0f2ced698921ae22a](https://basescan.org/address/0xc54cb94e91c767374a2f23f0f2ced698921ae22a)
-- `LPFactory.sol` - The third module, called in sequence, from the `Streme.sol` contract, this module creates a Uniswapv3 Pool and takes the remaining tokens and creates a single-sided LP position, which is then sent to the LP Locker, as mentioned above. As with the the LP Locker, contract has been modified from open source code written by the `Clanker` team.
+- `LpLockerv2.sol` - This _LP Locker_ contract holds the locked LP positions of all Uniswap v3 positions deployed by the `LP Factory` contract (see below). This contract also provides functions for claiming trading fees related to the LP positions. This contract has been modified from open source code written by the `Clanker` team. Deployed at [0xc54cb94E91c767374a2F23f0F2cEd698921AE22a](https://basescan.org/address/0xc54cb94e91c767374a2f23f0f2ced698921ae22a)
+- `LPFactory.sol` - The third module, called in sequence, from the `Streme.sol` contract, this module creates a Uniswapv3 Pool and takes the remaining tokens and creates a single-sided LP position, which is then sent to the LP Locker, as mentioned above. As with the the LP Locker, contract has been modified from open source code written by the `Clanker` team. Deployed at [0xfF65a5f74798EebF87C8FdFc4e56a71B511aB5C8](https://basescan.org/address/0xff65a5f74798eebf87c8fdfc4e56a71b511ab5c8)
+
+_The above contracts use interfaces, npm modules, and open-source code from Open Zeppelin, Uniswap, Superfluid, and Clanker._
+
+## Streme.fun Web Interface
+The [streme.fub](https://streme.fun) web interface provided token discovery for traders and interfacs to trade and stake/unstake Streme coins. Hosted by `Vercel`, the web UI is built with Next.js, React, Viem, wagmi, and uses `Privy` for Ethereum wallet connections and `0x` behind the scenes to enable trading of Streme coins.
+![Streme.fun web UI](https://api.streme.fun/images/streme-ui-token.png)
+
+## ETHGlobal Agentic Ethereum Sponsor Tech
+Streme.fun is a submission to the [Agentic Ethereum](https://ethglobal.com/events/agents) hackathon by ETHGlobal in Feb 2025. Tech from the following hackathon sponsors was used:
+- `Autonome`: The Streme AI Agent is powered by a Coinbase AgentKit agent deployed and hosted by `Autonome` [#](https://github.com/streme-fun/streme-server/blob/main/functions/streme/util.js#L80)
+- `Privy`: The wallet connections for the streme.fun frontend are powered by `Privy` [#](https://github.com/streme-fun/streme-frontend/blob/main/app/components/auth/PrivyProviderWrapper.tsx)
+- `Base`: Streme contracts have been deployed to `Base` Mainnet and the AI Agent is an AgentKit agent deployed via Autonome [#](https://basescan.org/address/0xf77bd45dadd933e6b9eb41226a4cef018e75597c)
+- `Nethermind`: While Nethermind is a sponsor of the hackathon, it doesn't offer tools or tech for teams to employ. Streme's unique AI Agent interfaces with Streme's modular smart contracts on Base, making it a strong candidate for Nethermind prizes.
+
+## Next Steps
+- Refine AI Agent
+- Refine web UI
+- Open up access beyond allow list
+- Plan upcoming seasons with a focus on fun and fast iterations to discover recipes that work best for token deployers and traders
+- Plans for _less fun_ token deployment configurations that may be more appealing to _serious_ use cases, such as builder teams with a need for team allocation/vesting, alternate liquidity solutions, different fee sharing splits, etc.
+- Unleash @streme to Twitter, Telegram, and beyond
+
+## Meet the Streme Team
+![The Streme Team](https://api.streme.fun/images/streme-team.png)
+
+- [@markcarey](https://warpcast.com/markcarey)
+- [@zeni.eth](https://warpcast.com/zeni.eth)
+
+## More
+- Streme website: https://streme.fun
+- Streme on Farcaster: AI Agent: https://warpcast.com/streme, Channel: https://warpcast.com/~/channel/streme
+- Streme on Twitter: https://x.com/StremeFun
+- Streme on GitHub: https://github.com/streme-fun
+- Streme on ETHGlobal Showcase: TDB
+- Streme demo video: TBD
