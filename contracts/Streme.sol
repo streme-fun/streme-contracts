@@ -136,7 +136,7 @@ contract Streme is AccessControl {
             preSaleTokenConfig._poolConfig.tick,
             preSaleTokenConfig._poolConfig.devBuyFee,
             IERC20(token).balanceOf(address(this)),
-            address(this),
+            preSaleTokenConfig._deployer,
             0
         );
         //console.log("liquidity id=%s", liquidityId);
