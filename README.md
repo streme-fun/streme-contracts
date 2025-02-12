@@ -85,7 +85,9 @@ The following smart contracts have been deployed to `Base Mainnet`:
 _The above contracts use interfaces, npm modules, and open-source code from Open Zeppelin, Uniswap, Superfluid, and Clanker._
 
 ## Streme.fun Web Interface
-The [streme.fub](https://streme.fun) web interface provided token discovery for traders and interfacs to trade and stake/unstake Streme coins. Hosted by `Vercel`, the web UI is built with Next.js, React, Viem, wagmi, and uses `Privy` for Ethereum wallet connections and `0x` behind the scenes to enable trading of Streme coins.
+The [streme.fub](https://streme.fun) web interface provided token discovery for traders and interfacs to trade and stake/unstake Streme coins. Hosted by `Vercel`, the web UI is built with Next.js, React, Viem, wagmi, and uses `Privy` for Ethereum wallet connections and `0x` behind the scenes to enable trading of Streme coins. Design uses using TailwindCSS and DaisyUI. 
+
+The intent of the web interface is to offer an easy to to both casually buy -> stake -> streak, as well as to present the information that a person wanting to get the best streaming deals would need. In that sense, it's meant to be educational without being overhwleming.
 ![Streme.fun web UI](https://api.streme.fun/images/streme-ui-token.png)
 
 ## Example Streme Coin: $STREME
@@ -102,7 +104,7 @@ The [streme.fub](https://streme.fun) web interface provided token discovery for 
 ## ETHGlobal Agentic Ethereum Sponsor Tech
 Streme.fun is a submission to the [Agentic Ethereum](https://ethglobal.com/events/agents) hackathon by ETHGlobal in Feb 2025. Tech from the following hackathon sponsors was used:
 - `Autonome`: The Streme AI Agent is powered by a Coinbase AgentKit agent deployed and hosted by `Autonome` [#](https://github.com/streme-fun/streme-server/blob/main/functions/streme/util.js#L80)
-- `Privy`: The wallet connections for the streme.fun frontend are powered by `Privy` [#](https://github.com/streme-fun/streme-frontend/blob/main/app/components/auth/PrivyProviderWrapper.tsx)
+- `Privy`: The wallet connections and transactions for the streme.fun frontend are powered by `Privy` [#](https://github.com/streme-fun/streme-frontend/blob/main/app/components/auth/PrivyProviderWrapper.tsx)
 - `Base`: Streme contracts have been deployed to `Base` Mainnet and the AI Agent is an AgentKit agent deployed via Autonome [#](https://basescan.org/address/0xf77bd45dadd933e6b9eb41226a4cef018e75597c)
 - `Nethermind`: While Nethermind is a sponsor of the hackathon, it doesn't offer tools or tech for teams to employ. Streme's unique AI Agent interfaces with Streme's modular smart contracts on Base, making it a strong candidate for Nethermind prizes.
 
