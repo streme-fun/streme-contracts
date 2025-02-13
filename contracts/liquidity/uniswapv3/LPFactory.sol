@@ -1,4 +1,8 @@
 // SPDX-License-Identifier: MIT
+
+// @dev This contract is modified from open source code by the Clanker team. Much credit goes to them.
+// @dev https://github.com/clanker-devco/contracts/blob/main/src/Clanker.sol
+
 pragma solidity ^0.8.26;
 
 // TODO: remove this
