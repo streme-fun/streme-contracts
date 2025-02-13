@@ -123,7 +123,7 @@ contract Streme is AccessControl {
             // approve Hook for all tokens owned by this contract
             IERC20(token).approve(address(postDeployHook), IERC20(token).balanceOf(address(this)));
             //console.log("token approved");
-            address postDeployAddress = postDeployHook.hook(token, owner);
+            postDeployHook.hook(token, owner);
             //console.log("post deploy address=%s", postDeployAddress);
         }
 
