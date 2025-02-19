@@ -36,6 +36,10 @@ interface IStakedToken {
     ) external;
 }
 
+interface IStremeEvents {
+    function registerEmitter(address emitter) external;
+}
+
 contract StakingFactory is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
@@ -46,6 +50,7 @@ contract StakingFactory is AccessControl {
     int96 public flowDuration = 365 days;
     uint256 public lockDuration = 1 days;
     address public teamRecipient;
+    address public stremeEvents;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
     /**
@@ -53,12 +58,13 @@ contract StakingFactory is AccessControl {
      */
     event LockDurationUpdated(uint256 duration);
 
-    constructor(IGDAv1Forwarder _gda, address _stakedTokenImplementation, address _teamRecipient) {
+    constructor(IGDAv1Forwarder _gda, address _stakedTokenImplementation, address _teamRecipient, address _stremeEvents) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         gda = _gda;
         stakedTokenImplementation = _stakedTokenImplementation;
         teamRecipient = _teamRecipient;
+        stremeEvents = _stremeEvents;
     }
 
     function hook(
@@ -91,6 +97,9 @@ contract StakingFactory is AccessControl {
         gda.distributeFlow(stakeableToken, address(this), pool, flowRate, "");
         emit StakedTokenCreated(stakedToken, stakeableToken, pool);
 
+        // @dev 6. Register the staked token as an emitter
+        IStremeEvents(stremeEvents).registerEmitter(stakedToken);
+
         return stakedToken;
     }
 
@@ -118,6 +127,10 @@ contract StakingFactory is AccessControl {
 
     function setStakedTokenImplementation(address _stakedTokenImplementation) external onlyRole(MANAGER_ROLE) {
         stakedTokenImplementation = _stakedTokenImplementation;
+    }
+
+    function setStremeEvents(address _stremeEvents) external onlyRole(MANAGER_ROLE) {
+        stremeEvents = _stremeEvents;
     }
     
 }
