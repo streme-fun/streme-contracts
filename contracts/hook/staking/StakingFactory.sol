@@ -32,7 +32,8 @@ interface IStakedToken {
         address _stakeableToken, 
         address _pool, 
         uint256 _lockDuration,
-        address _teamRecipient
+        address _teamRecipient,
+        address _stremeEvents
     ) external;
 }
 
@@ -85,7 +86,7 @@ contract StakingFactory is AccessControl {
         // @dev 3. Initialize the staked token
         string memory name = string(abi.encodePacked("Staked ", IERC20(stakeableToken).name()));
         string memory symbol = string(abi.encodePacked("st", IERC20(stakeableToken).symbol()));
-        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration, teamRecipient);
+        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration, teamRecipient, stremeEvents);
 
         // @dev 4. Transfer reward amount to this contract
         uint256 allowance = IERC20(stakeableToken).allowance(msg.sender, address(this));
