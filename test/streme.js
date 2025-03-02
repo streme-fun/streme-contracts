@@ -23,6 +23,8 @@ const {
         addr.postDeployFactory = process.env.SEP_STREME_STAKING_FACTORY;
         addr.lpFactory = process.env.SEP_STREME_LP_FACTORY;
         addr.streme = process.env.SEP_STREME;
+    } else if (chain == "base") {
+        // no-op
     } else if (chain == "localhost") {
       // no-op
     } else {
@@ -119,7 +121,7 @@ const {
 
         const zapStakeJSON = require("../artifacts/contracts/StremeZap.sol/StremeZap.json");
         //tokenOut = "0x73582df1cad3187cD0746b7A473d65c06386837e"; // $DEUS to test
-        const zapStake = new ethers.Contract("0x96fBbCaD05e06d39D037F01D74780C86813Fd271", zapStakeJSON.abi, signer);
+        const zapStake = new ethers.Contract("0xeA25b9CD2D9F8Ba6cff45Ed0f6e1eFa2fC79a57E", zapStakeJSON.abi, signer);
         const amtOut = await zapStake.zap(tokenOut, amountIn, amountOutMin, stakingContract, {value: amountIn});
         console.log("amtOut: ", amtOut);
         //expect(amtOut).to.not.be.empty;
