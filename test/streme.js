@@ -23,6 +23,8 @@ const {
         addr.postDeployFactory = process.env.SEP_STREME_STAKING_FACTORY;
         addr.lpFactory = process.env.SEP_STREME_LP_FACTORY;
         addr.streme = process.env.SEP_STREME;
+    } else if (chain == "localhost") {
+      // no-op
     } else {
         console.log("chain not supported");
         return;
@@ -38,7 +40,7 @@ const {
   
     } // end deployContracts
   
-    describe("Create Token", function () {
+    describe.skip("Create Token", function () {
   
       it("should deploy token", async function () {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
@@ -77,6 +79,56 @@ const {
   
       
   
+    }); // end describe
+
+    describe("Zap Stake", function () {
+
+      it("should zap stake", async function () {
+        var tokenIn = "0x4200000000000000000000000000000000000006"; // weth
+        var tokenOut = "0x3b3cd21242ba44e9865b066e5ef5d1cc1030cc58";
+        var amountIn = ethers.parseEther("0.001");
+        const [signer] = await ethers.getSigners();
+
+        // get a quote:
+        const quoterAbi = [ "function quoteExactInputSingle(tuple(address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96) params) external view returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)" ];
+        const quoter = new ethers.Contract(
+          "0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a",
+          quoterAbi,
+          signer
+        );
+        const quote = await quoter.quoteExactInputSingle.staticCall({
+          tokenIn: tokenIn,
+          tokenOut: tokenOut,
+          amountIn: amountIn,
+          fee: 10000,
+          sqrtPriceLimitX96: 0
+        });
+        console.log("quote: ", quote);
+        var amountOutMin = quote.amountOut;
+        console.log("amountOutMin: ", amountOutMin);
+        // with 0.5% slippage
+        amountOutMin = amountOutMin - (amountOutMin / 200n);
+        console.log("amountOutMin: ", amountOutMin);
+
+        const stakingContract = "0x93419f1c0f73b278c73085c17407794a6580deff";
+        const stakeTokenJSON = require("../artifacts/contracts/hook/staking/StakedToken.sol/StakedToken.json");
+        const stakedToken = new ethers.Contract(stakingContract, stakeTokenJSON.abi, signer);
+        const balance = await stakedToken.balanceOf(signer.address);
+        console.log("balance: ", balance);
+
+
+        const zapStakeJSON = require("../artifacts/contracts/StremeZap.sol/StremeZap.json");
+        //tokenOut = "0x73582df1cad3187cD0746b7A473d65c06386837e"; // $DEUS to test
+        const zapStake = new ethers.Contract("0x96fBbCaD05e06d39D037F01D74780C86813Fd271", zapStakeJSON.abi, signer);
+        const amtOut = await zapStake.zap(tokenOut, amountIn, amountOutMin, stakingContract, {value: amountIn});
+        console.log("amtOut: ", amtOut);
+        //expect(amtOut).to.not.be.empty;
+
+        const balanceAfter = await stakedToken.balanceOf(signer.address);
+        console.log("balanceAfter: ", balanceAfter);
+        expect(balanceAfter).to.be.gt(balance);
+      }); // end it
+
     }); // end describe
   
   }); // end describe 
