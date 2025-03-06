@@ -155,6 +155,8 @@ contract NoinsMinter is AccessControl {
         noinToken.transferFrom(noinToken.ownerOf(nounId), msg.sender, nounId);
         // update lastBurn
         lastBurn[nounId] = amount;
+        // MAYBE: collect rewards to previous fee recipient?
+        //lpLocker.collectRewards(stremeCoins[nounId]._liquidityId);
         // make them the reward recipient
         lpLocker.addUserRewardRecipient(ILpLockerv2.UserRewardRecipient(msg.sender, stremeCoins[nounId]._liquidityId));
     }
