@@ -102,6 +102,8 @@ contract NoinsMinter is AccessControl {
     address public liquidityFactory; // = 0xfF65a5f74798EebF87C8FdFc4e56a71B511aB5C8;
     ILpLockerv2 public lpLocker;
 
+    event NoinClaimed(address indexed claimer, uint256 indexed nounId, uint256 amount);
+
     constructor(INoinToken _noinToken, INounsDescriptorV2 _nounsDescriptor, IStreme _streme, address _tokenFactory, address _postDeployHook, address _liquidityFactory, ILpLockerv2 _lpLocker, uint256 _mintCooldown) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
@@ -138,7 +140,8 @@ contract NoinsMinter is AccessControl {
         );
         (address stremeCoin, uint256 liquidityId) = streme.deployToken(tokenFactory, postDeployHook, liquidityFactory, address(0), preSaleTokenConfig);
         stremeCoins[nounId] = StremeCoin(stremeCoin, liquidityId);
-        // 4. move the Noin?
+        // 4. move the Noin to minter:
+        noinToken.transferFrom(address(this), msg.sender, nounId);
 
         // 5. enforced buy?
 
@@ -155,10 +158,11 @@ contract NoinsMinter is AccessControl {
         noinToken.transferFrom(noinToken.ownerOf(nounId), msg.sender, nounId);
         // update lastBurn
         lastBurn[nounId] = amount;
-        // MAYBE: collect rewards to previous fee recipient?
-        //lpLocker.collectRewards(stremeCoins[nounId]._liquidityId);
+        // collect rewards to previous fee recipient
+        lpLocker.collectRewards(stremeCoins[nounId]._liquidityId);
         // make them the reward recipient
         lpLocker.addUserRewardRecipient(ILpLockerv2.UserRewardRecipient(msg.sender, stremeCoins[nounId]._liquidityId));
+        emit NoinClaimed(msg.sender, nounId, amount);
     }
 
     function _imageDataUri(uint256 nounId) internal view returns (string memory) {
