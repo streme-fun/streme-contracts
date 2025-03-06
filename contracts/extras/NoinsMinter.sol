@@ -86,9 +86,14 @@ contract NoinsMinter is AccessControl {
     // noinId => StremeCoin
     mapping(uint256 => StremeCoin) public stremeCoins;
 
-    // lastBurn amount for a given Noin
-    mapping(uint256 => uint256) public lastBurn;
-    uint8 public minBurnIncrementPercentage = 10; // 10%
+    struct Claim {
+        uint256 amount;
+        address claimer;
+    }
+    // noinId => Claim
+    mapping(uint256 => Claim) public lastClaim;
+    uint256 public minClaimAmount = 1_000_000 ether;    
+    uint8 public minClaimIncrementPercentage = 20; // 20%
 
     // lastMint timestamp
     uint256 public lastMint;
@@ -148,16 +153,24 @@ contract NoinsMinter is AccessControl {
     }
 
     function claimNoin(uint256 nounId, uint256 amount) external {
-        // amount must be at least 10% more than lastBurn
-        require(amount >= lastBurn[nounId] * minBurnIncrementPercentage / 100, "NoinsMinter: amount must be at least 10% more than lastBurn");
+        // amount must be at least minClaimAmount
+        require(amount >= minClaimAmount, "NoinsMinter: amount must be at least minClaimAmount");
+        // get last claim:
+        Claim memory last = lastClaim[nounId];
+        // amount must be at least 10% more than lastClaim
+        require(amount >= last.amount * minClaimIncrementPercentage / 100, "NoinsMinter: amount must be at least x% more than lastClaim");
         // get stremeCoin:
         IERC20 stremeCoin = IERC20(stremeCoins[nounId]._stremeCoin);
-        // burn stremeCoin
-        stremeCoin.transferFrom(msg.sender, address(0), amount);
+        // transfer stremeCoin
+        stremeCoin.transferFrom(msg.sender, address(this), amount);
+        // send 90% to previous claimer
+        if (last.amount > 0) {
+            stremeCoin.transfer(last.claimer, amount * 9 / 10);
+        }
         // transfer Noin to msg.sender
         noinToken.transferFrom(noinToken.ownerOf(nounId), msg.sender, nounId);
-        // update lastBurn
-        lastBurn[nounId] = amount;
+        // update lastClaim
+        lastClaim[nounId] = Claim(amount, msg.sender);
         // collect rewards to previous fee recipient
         lpLocker.collectRewards(stremeCoins[nounId]._liquidityId);
         // make them the reward recipient
