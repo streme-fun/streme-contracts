@@ -19,10 +19,14 @@ if (chain == "degen") {
   addr.tokenFactory = process.env.SEP_STREME_SUPER_TOKEN_FACTORY;
   addr.postDeployFactory = process.env.SEP_STREME_STAKING_FACTORY;
   addr.lpFactory = process.env.SEP_STREME_LP_FACTORY;
-} else if (chain == "base") {
+} else if (chain == "base" || chain == "localhost") {
   addr.tokenFactory = process.env.STREME_SUPER_TOKEN_FACTORY;
   addr.postDeployFactory = process.env.STREME_STAKING_FACTORY;
   addr.lpFactory = process.env.STREME_LP_FACTORY;
+  addr.streme = process.env.STREME;
+  addr.lpLocker = process.env.STREME_LIQUIDITY_LOCKER;
+  addr.noinToken = process.env.BASE_NOIN_TOKEN;
+  addr.nounDescriptor = process.env.BASE_NOUN_DESCRIPTOR;
 } else {
   console.log("chain not supported");
   return;
@@ -37,3 +41,4 @@ module.exports = buildModule("NoinMinterModule", (m) => {
 });
 
 // npx hardhat ignition deploy ignition/modules/NoinMinter.js --network baseSepolia --deployment-id noin-minter-one
+// npx hardhat ignition deploy ignition/modules/NoinMinter.js --network localhost --deployment-id local-noin-minter-one

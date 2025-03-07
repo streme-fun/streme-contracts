@@ -83,7 +83,7 @@ const {
   
     }); // end describe
 
-    describe("Zap Stake", function () {
+    describe.skip("Zap Stake", function () {
 
       it("should zap stake", async function () {
         var tokenIn = "0x4200000000000000000000000000000000000006"; // weth

@@ -1,8 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+// hardhat console.log
+import "hardhat/console.sol";
+
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import { Strings } from '@openzeppelin/contracts/utils/Strings.sol';
 
 interface IStreme {
     struct PoolConfig {
@@ -58,7 +62,8 @@ interface INoinToken {
     function mint() external returns (uint256 nounId);
     function seeds(uint256 nounId) external view returns (INounsSeeder.Seed memory);
     function ownerOf(uint256 nounId) external view returns (address);
-    function transferFrom(address sender, address recipient, uint256 nounId) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 nounId) external;
+    function approve(address spender, uint256 nounId) external returns (bool);
 }
 
 interface ILpLockerv2 {
@@ -73,12 +78,12 @@ interface ILpLockerv2 {
 }
 
 contract NoinsMinter is AccessControl {
+    using Strings for uint256;
     bytes32 public constant MANAGER_ROLE = keccak256("MINTER_ROLE");
 
     INounsDescriptorV2 public nounsDescriptor;
     INoinToken public noinToken;
 
-    // TODO: figure out the best struct for this
     struct StremeCoin {
         address _stremeCoin;
         uint256 _liquidityId;
@@ -107,6 +112,7 @@ contract NoinsMinter is AccessControl {
     address public liquidityFactory; // = 0xfF65a5f74798EebF87C8FdFc4e56a71B511aB5C8;
     ILpLockerv2 public lpLocker;
 
+    event NoinMinted(uint256 indexed nounId, address stremeCoin, uint256 liquidityId);
     event NoinClaimed(address indexed claimer, uint256 indexed nounId, uint256 amount);
 
     constructor(INoinToken _noinToken, INounsDescriptorV2 _nounsDescriptor, IStreme _streme, address _tokenFactory, address _postDeployHook, address _liquidityFactory, ILpLockerv2 _lpLocker, uint256 _mintCooldown) {
@@ -123,14 +129,22 @@ contract NoinsMinter is AccessControl {
     }
 
     function mint() external {
+        console.log("Minting Noin");
         // cooldown must be over to mint:
         require(block.timestamp - lastMint > mintCooldown, "NoinsMinter: mint cooldown not over");
+        console.log("Mint cooldown over");
         lastMint = block.timestamp;
+        console.log("lastMint Saved");
         // 1. mint Noin
         uint256 nounId = noinToken.mint();
+        console.log("Noin minted: %s", nounId);
         // 2. get salt
         (bytes32 salt, ) = streme.generateSalt(_symbol(nounId), msg.sender, tokenFactory, weth);
+        console.logBytes32(salt);
         // 3. deploy Streme
+        console.log("name: %s", _name(nounId));
+        console.log("symbol: %s", _symbol(nounId));
+        //console.log("image: %s", _imageDataUri(nounId));
         IStreme.PreSaleTokenConfig memory preSaleTokenConfig = IStreme.PreSaleTokenConfig(
             _name(nounId), 
             _symbol(nounId), 
@@ -138,63 +152,71 @@ contract NoinsMinter is AccessControl {
             10000, 
             salt, 
             msg.sender, 
-            nounId, 
-            _imageDataUri(nounId), 
+            69, 
+            nounId.toString(), 
             "0x0", 
             poolConfig
         );
+        console.log("PreSaleTokenConfig created");
         (address stremeCoin, uint256 liquidityId) = streme.deployToken(tokenFactory, postDeployHook, liquidityFactory, address(0), preSaleTokenConfig);
+        console.log("Streme deployed: %s", stremeCoin);
+        console.log("Liquidity deployed: %s", liquidityId);
         stremeCoins[nounId] = StremeCoin(stremeCoin, liquidityId);
         // 4. move the Noin to minter:
-        noinToken.transferFrom(address(this), msg.sender, nounId);
-
-        // 5. enforced buy?
-
+        console.log("Owner of nounId: %s", noinToken.ownerOf(nounId));
+        console.log("address(this): %s", address(this));
+        noinToken.transferFrom(noinToken.ownerOf(nounId), msg.sender, nounId);
+        console.log("Noin transferred to msg.sender");
+        emit NoinMinted(nounId, stremeCoin, liquidityId);
     }
 
     function claimNoin(uint256 nounId, uint256 amount) external {
+        console.log("Claiming Noin");
         // amount must be at least minClaimAmount
         require(amount >= minClaimAmount, "NoinsMinter: amount must be at least minClaimAmount");
+        console.log("Amount is at least minClaimAmount");
         // get last claim:
         Claim memory last = lastClaim[nounId];
+        console.log("Last Claim: %s", last.amount);
         // amount must be at least 10% more than lastClaim
-        require(amount >= last.amount * minClaimIncrementPercentage / 100, "NoinsMinter: amount must be at least x% more than lastClaim");
+        require(amount >= last.amount + (last.amount * minClaimIncrementPercentage / 100), "NoinsMinter: amount must be at least x% more than lastClaim");
+        console.log("Amount is at least 20% more than lastClaim");
         // get stremeCoin:
         IERC20 stremeCoin = IERC20(stremeCoins[nounId]._stremeCoin);
         // transfer stremeCoin
         stremeCoin.transferFrom(msg.sender, address(this), amount);
+        console.log("StremeCoin transferred to contract");
         // send 90% to previous claimer
         if (last.amount > 0) {
             stremeCoin.transfer(last.claimer, amount * 9 / 10);
+            console.log("StremeCoin transferred to previous claimer");
+        } else {
+            console.log("No previous claimer");
         }
         // transfer Noin to msg.sender
         noinToken.transferFrom(noinToken.ownerOf(nounId), msg.sender, nounId);
+        console.log("Noin transferred to msg.sender");
         // update lastClaim
         lastClaim[nounId] = Claim(amount, msg.sender);
+        console.log("Last Claim updated");
         // collect rewards to previous fee recipient
         lpLocker.collectRewards(stremeCoins[nounId]._liquidityId);
+        console.log("Rewards collected");
         // make them the reward recipient
         lpLocker.addUserRewardRecipient(ILpLockerv2.UserRewardRecipient(msg.sender, stremeCoins[nounId]._liquidityId));
+        console.log("User added as reward recipient");
         emit NoinClaimed(msg.sender, nounId, amount);
     }
 
-    function _imageDataUri(uint256 nounId) internal view returns (string memory) {
-        INounsSeeder.Seed memory seed = noinToken.seeds(nounId);
-        return nounsDescriptor.generateSVGImage(seed);
-    }
-    function imageDataUri(uint256 nounId) external view returns (string memory) {
-        return _imageDataUri(nounId);
-    }
-
     function _name(uint256 nounId) internal pure returns (string memory) {
-        return string(abi.encodePacked("Noin #", nounId));
+        return string(abi.encodePacked("Noin #", nounId.toString()));
     }
     function name(uint256 nounId) external pure returns (string memory) {
         return _name(nounId);
     }
 
     function _symbol(uint256 nounId) internal pure returns (string memory) {
-        return string(abi.encodePacked("NOIN", nounId));
+        return string(abi.encodePacked("NOIN", nounId.toString()));
     }
     function symbol(uint256 nounId) external pure returns (string memory) {
         return _symbol(nounId);
