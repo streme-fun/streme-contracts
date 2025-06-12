@@ -8,7 +8,7 @@ interface IGDAv1Forwarder {
     function connectPool(address pool, bytes calldata userData) external returns (bool);
 }
 
-contract StremeZap {
+contract StremeStakingRewardsFunder is AccessControl {
     address public stakingPoolAddress;
     IERC20 public stremeCoin;
     IERC20 public stakedStremeCoin;
