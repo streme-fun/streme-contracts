@@ -70,6 +70,14 @@ contract StremeStakingRewardsFunder is AccessControl {
     }
 
     /**
+     * @dev get the stremeCoin balance of the fund
+     * @return The stremeCoin balance of the fund.
+     */
+    function stremeCoinBalance() external view returns (uint256) {
+        return stremeCoin.balanceOf(address(this)); 
+    }
+
+    /**
      * @dev Withdraw all of the stremeCoin from the fund, only callable by the manager.
      * @param recipient The address to receive the stremeCoin.
      */
