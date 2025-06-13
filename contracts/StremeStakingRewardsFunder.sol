@@ -33,6 +33,7 @@ contract StremeStakingRewardsFunder is AccessControl {
     /**
      * @dev Deposit stakedStremeCoin into the fund.
      * @param amount The amount of stakedStremeCoin to deposit.
+     * This function allows users to deposit stakedStremeCoin into the fund.
      */
     function deposit(uint256 amount) external {
         require(amount > 0, "Amount must be greater than zero");
@@ -44,14 +45,39 @@ contract StremeStakingRewardsFunder is AccessControl {
     /**
      * @dev Withdraw stakedStremeCoin from the fund.
      * @param amount The amount of stakedStremeCoin to withdraw.
+     * This function allows users to withdraw stakedStremeCoin from their balance.
+     * Withdrawls can be made at any time (not locked)
      */
     function withdraw(uint256 amount) external {
-        require(amount > 0, "Amount must be greater than zero");
-        require(deposits[msg.sender] >= amount, "Insufficient balance");
-        deposits[msg.sender] -= amount;
-        require(stakedStremeCoin.transfer(msg.sender, amount), "Transfer failed");
-        emit Withdraw(msg.sender, amount);
+        _withdraw(msg.sender, amount);
     }
+    function withdrawAll() external {
+        uint256 amount = deposits[msg.sender];
+        _withdraw(msg.sender, amount);
+    }
+
+    /**
+     * @dev admin withdraw stakedStremeCoin from the fund
+     * @param user The address of the user to withdraw for.
+     * This function allows the MANAGER to withdraw 
+     * stakedStremeCoin from a user's balance to the user's wallet.
+     * It can be used in cases where a user is unable (or forgets) to withdraw themselves,
+     * Wihdrawn amount can ONLY be transferred to the user who has deposited the stakedStremeCoin.
+     * It CANNOT be used to withdraw funds to the manager or any other address.
+     */
+    function withdrawAllForUser(address user) external onlyRole(MANAGER_ROLE) {
+        uint256 amount = deposits[user];
+        _withdraw(user, amount);
+    }
+
+    function _withdraw(address user, uint256 amount) internal {
+        require(amount > 0, "Amount must be greater than zero");
+        require(deposits[user] >= amount, "Insufficient balance");
+        deposits[user] -= amount;
+        require(stakedStremeCoin.transfer(user, amount), "Transfer failed");
+        emit Withdraw(user, amount);
+    }
+
 
     /**
      * @dev Get the balance of stakedStremeCoin for a user.
