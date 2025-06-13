@@ -3,12 +3,13 @@ pragma solidity ^0.8.25;
 
 import {ERC20, IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 interface IGDAv1Forwarder {
     function connectPool(address pool, bytes calldata userData) external returns (bool);
 }
 
-contract StremeStakingRewardsFunder is AccessControl {
+contract StremeStakingRewardsFunder is AccessControl, Pausable {
     address public stakingPoolAddress;
     IERC20 public stremeCoin;
     IERC20 public stakedStremeCoin;
@@ -35,7 +36,7 @@ contract StremeStakingRewardsFunder is AccessControl {
      * @param amount The amount of stakedStremeCoin to deposit.
      * This function allows users to deposit stakedStremeCoin into the fund.
      */
-    function deposit(uint256 amount) external {
+    function deposit(uint256 amount) external whenNotPaused {
         require(amount > 0, "Amount must be greater than zero");
         require(stakedStremeCoin.transferFrom(msg.sender, address(this), amount), "Transfer failed");
         deposits[msg.sender] += amount;
@@ -45,7 +46,7 @@ contract StremeStakingRewardsFunder is AccessControl {
     /**
      * @dev Withdraw stakedStremeCoin from the fund.
      * @param amount The amount of stakedStremeCoin to withdraw.
-     * This function allows users to withdraw stakedStremeCoin from their balance.
+     * This function allows users to withdraw deposited stakedStremeCoin from their balance.
      * Withdrawls can be made at any time (not locked)
      */
     function withdraw(uint256 amount) external {
@@ -59,10 +60,10 @@ contract StremeStakingRewardsFunder is AccessControl {
     /**
      * @dev admin withdraw stakedStremeCoin from the fund
      * @param user The address of the user to withdraw for.
-     * This function allows the MANAGER to withdraw 
-     * stakedStremeCoin from a user's balance to the user's wallet.
-     * It can be used in cases where a user is unable (or forgets) to withdraw themselves,
-     * Wihdrawn amount can ONLY be transferred to the user who has deposited the stakedStremeCoin.
+     * This function allows the MANAGER to withdraw all the
+     * stakedStremeCoin from a user's balance to the user's wallet ONLY
+     * It can be used in cases where a user is unable (or forgets) to withdraw themselves.
+     * Withdrawn amount can ONLY be transferred to the user who has deposited the stakedStremeCoin.
      * It CANNOT be used to withdraw funds to the manager or any other address.
      */
     function withdrawAllForUser(address user) external onlyRole(MANAGER_ROLE) {
@@ -70,6 +71,12 @@ contract StremeStakingRewardsFunder is AccessControl {
         _withdraw(user, amount);
     }
 
+    /**
+     * @dev Internal function to withdraw stakedStremeCoin from the fund.
+     * @param user The address of the user to withdraw for.
+     * @param amount The amount of stakedStremeCoin to withdraw.
+     * This function is used internally to handle the withdrawal logic.
+     */
     function _withdraw(address user, uint256 amount) internal {
         require(amount > 0, "Amount must be greater than zero");
         require(deposits[user] >= amount, "Insufficient balance");
@@ -77,7 +84,6 @@ contract StremeStakingRewardsFunder is AccessControl {
         require(stakedStremeCoin.transfer(user, amount), "Transfer failed");
         emit Withdraw(user, amount);
     }
-
 
     /**
      * @dev Get the balance of stakedStremeCoin for a user.
@@ -90,6 +96,7 @@ contract StremeStakingRewardsFunder is AccessControl {
     /**
      * @dev Get the total balance of stakedStremeCoin in the fund.
      * @return The total balance of stakedStremeCoin in the fund.
+     * This function returns the total amount of stakedStremeCoin that has been deposited into the fund.
      */
     function totalBalance() external view returns (uint256) {
         return stakedStremeCoin.balanceOf(address(this));
@@ -98,6 +105,8 @@ contract StremeStakingRewardsFunder is AccessControl {
     /**
      * @dev get the stremeCoin balance of the fund
      * @return The stremeCoin balance of the fund.
+     * This function returns the amount of stremeCoin that has been earned as staking rewards.
+     * It can be used to check the rewards available for withdrawal.
      */
     function stremeCoinBalance() external view returns (uint256) {
         return stremeCoin.balanceOf(address(this)); 
@@ -106,12 +115,29 @@ contract StremeStakingRewardsFunder is AccessControl {
     /**
      * @dev Withdraw all of the stremeCoin from the fund, only callable by the manager.
      * @param recipient The address to receive the stremeCoin.
+     * This function allows the manager to withdraw all staking rewaards (stremeCoin) from the fund.
+     * It can be used to transfer the stremeCoin to a specific address, such as a treasury or a rewards pool.
+     * It can only be called by the manager.
      */
     function withdrawStremeCoin(address recipient) external onlyRole(MANAGER_ROLE) {
         uint256 balance = stremeCoin.balanceOf(address(this));
         require(balance > 0, "No stremeCoin to withdraw");
         require(stremeCoin.transfer(recipient, balance), "Transfer failed");
         emit WithdrawStremeCoin(recipient, balance);
+    }
+
+    /**
+     * @dev Pause the contract, only callable by the manager.
+     * This will prevent deposits ONLY, withdrawals will still be allowed.
+     */
+    function pause() external onlyRole(MANAGER_ROLE) {
+        _pause();
+    }
+    /**
+     * @dev Unpause the contract, only callable by the manager.
+     */
+    function unpause() external onlyRole(MANAGER_ROLE) {
+        _unpause();
     }
     
 }
