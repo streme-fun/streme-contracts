@@ -26,6 +26,7 @@ contract StremeStakingRewardsFunder is AccessControl, Pausable {
         stakedStremeCoin = _stakedStremeCoin;
         stakingPoolAddress = _stakingPoolAddress;
         gdaForwarder = _gdaForwarder;
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         // connect this contract to the staking pool
         gdaForwarder.connectPool(stakingPoolAddress, "");
