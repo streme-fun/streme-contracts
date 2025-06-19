@@ -19,11 +19,14 @@ module.exports = {
   defaultNetwork: "base",
   networks: {
     hardhat: {
-      accounts: [{ privateKey: `0x${PRIVATE_KEY}`, balance: "10000000000000000000000"}],
+      accounts: [
+        { privateKey: `0x${PRIVATE_KEY}`, balance: "10000000000000000000000"},
+        { privateKey: `0x${PRIVATE_KEY_STREME_DEPLOYER}`, balance: "10000000000000000000000"}
+      ],
       forking: {
         url: process.env.API_URL_BASE,
         ignoreUnknownTxType: true,
-        blockNumber: 25951152        // assumes BaseSepolia fork
+        blockNumber: 27301570        // assumes Base fork
       },
     },
     baseSepolia: {
@@ -34,7 +37,7 @@ module.exports = {
     base: {
       url: API_URL_BASE,
       accounts: [`0x${PRIVATE_KEY_STREME_DEPLOYER}`],
-      gasMultiplier: 2,
+      gasMultiplier: 1.1,
     },
     sepolia: {
       url: API_URL_SEPOLIA,

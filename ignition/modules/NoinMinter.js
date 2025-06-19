@@ -33,6 +33,7 @@ if (chain == "degen") {
 }
 
 var coolDown = 5*60; // 5 minutes -- TODO: change to 24 hours for production
+coolDown = 60*60*24; // 24 hours
 
 module.exports = buildModule("NoinMinterModule", (m) => {
   const minter = m.contract("NoinsMinter", [addr.noinToken, addr.nounDescriptor, addr.streme, addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, addr.lpLocker, coolDown]);
@@ -42,3 +43,4 @@ module.exports = buildModule("NoinMinterModule", (m) => {
 
 // npx hardhat ignition deploy ignition/modules/NoinMinter.js --network baseSepolia --deployment-id noin-minter-one
 // npx hardhat ignition deploy ignition/modules/NoinMinter.js --network localhost --deployment-id local-noin-minter-one
+// npx hardhat ignition deploy ignition/modules/NoinMinter.js --network base --deployment-id noin-minter-base-one

@@ -90,28 +90,13 @@ const {
       }); // end it
   
       it("should mint NFT and deploy streme coin", async function () {
+        this.timeout(80000);
         const minterJSON = require("../artifacts/contracts/extras/NoinsMinter.sol/NoinsMinter.json");
         const [signer] = await ethers.getSigners();
         const minter = new ethers.Contract(addr.noinsMinter, minterJSON.abi, signer);
         
         await minter.mint();
         expect(1).to.be.eq(1);
-      }); // end it
-
-      it.skip("TEST: should transfer NFT to caller", async function () {
-        const minterJSON = require("../artifacts/contracts/extras/NoinsMinter.sol/NoinsMinter.json");
-        const [signer, stremeSigner] = await ethers.getSigners();
-        const minter = new ethers.Contract(addr.noinsMinter, minterJSON.abi, stremeSigner);
-        
-        await minter.transferNoin(0);
-
-        const noinABI = [
-          "function ownerOf(uint256 tokenId) external view returns (address)"
-        ];
-        const noin = new ethers.Contract(addr.noinToken, noinABI, signer);
-        const owner = await noin.ownerOf(0);
-        console.log("Owner: ", owner);
-        expect(owner).to.be.eq(stremeSigner.address);
       }); // end it
   
       it("should grab Streme Coin address", async function () {
@@ -121,7 +106,7 @@ const {
         const coin = await minter.stremeCoins(0);
         console.log("Streme Coin: ", coin);
         stremeCoinAddress = coin["_stremeCoin"];
-        expect(stremeCoinAddress).to.not.be.empty;
+        expect(stremeCoinAddress).to.not.equal(ethers.ZeroAddress);
       }); // end it
 
       it("should zap BUT NOT stake", async function () {
@@ -323,6 +308,20 @@ const {
         const uri = await nounDescriptor.backgroundCount();
         console.log("URI: ", uri);
         expect(uri).to.not.be.empty;
+      }); // end it
+
+      it("should try to mint second NFT and deploy streme coin", async function () {
+        this.timeout(80000);
+
+        // hardhat advance cooldown seconds:
+        await time.increase(420);
+
+        const minterJSON = require("../artifacts/contracts/extras/NoinsMinter.sol/NoinsMinter.json");
+        const [signer] = await ethers.getSigners();
+        const minter = new ethers.Contract(addr.noinsMinter, minterJSON.abi, signer);
+        
+        await minter.mint();
+        expect(1).to.be.eq(1);
       }); // end it
 
 

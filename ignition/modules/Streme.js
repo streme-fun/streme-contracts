@@ -35,4 +35,4 @@ module.exports = buildModule("StremeModule", (m) => {
 
 // npx hardhat ignition deploy ignition/modules/Streme.js --network baseSepolia --deployment-id streme-new-one
 // npx hardhat ignition deploy ignition/modules/Streme.js --network sepolia --deployment-id streme-sep-one
-// npx hardhat ignition deploy ignition/modules/Streme.js --network base --deployment-id streme-base-one
+// npx hardhat ignition deploy ignition/modules/Streme.js --network base --deployment-id streme-new-base-one
