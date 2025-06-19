@@ -45,6 +45,19 @@ contract StremeStakingRewardsFunder is AccessControl, Pausable {
     }
 
     /**
+     * @dev Deposit staked tokens for user. The user is beneficiary of the deposit and only they can withdraw.
+     * @param user The address of the user to deposit for.
+     * @param amount The amount of stakedStremeCoin to deposit.
+     * This function allows a deposit of stakedStremeCoin on behalf of a user.
+     */
+    function depositForUser(address user, uint256 amount) external whenNotPaused {
+        require(amount > 0, "Amount must be greater than zero");
+        require(stakedStremeCoin.transferFrom(msg.sender, address(this), amount), "Transfer failed");
+        deposits[user] += amount;
+        emit Deposit(user, amount);
+    }
+
+    /**
      * @dev Withdraw stakedStremeCoin from the fund.
      * @param amount The amount of stakedStremeCoin to withdraw.
      * This function allows users to withdraw deposited stakedStremeCoin from their balance.
