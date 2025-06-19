@@ -26,17 +26,29 @@ interface IStremeStaking {
     function stake(address to, uint256 amount) external;
 }
 
+interface IStremeFunder {
+    function depositForUser(address user, uint256 amount) external;
+}
+
 contract StremeZap {
     ISwapRouter public immutable swapRouter;
     address public weth;
     uint24 public constant poolFee = 10000;
+
+    event ZapCompleted(
+        address indexed stremeCoin,
+        uint256 ethAmount,
+        uint256 coinAmount,
+        address indexed stakingContract,
+        address indexed funderContract
+    );
 
     constructor(ISwapRouter _swapRouter, address _weth) {
         swapRouter = _swapRouter;
         weth = _weth;
     }
 
-    function zap(address stremeCoin, uint256 amountIn, uint256 amountOutMin, address stakingContract) external payable returns (uint256 amountOut) {
+    function zap(address stremeCoin, uint256 amountIn, uint256 amountOutMin, address stakingContract, address funderContract) external payable returns (uint256 amountOut) {
         require(msg.value == amountIn, "msg.value must be equal to amountIn");
 
         address recipient = (stakingContract != address(0)) ? address(this) : msg.sender;
@@ -57,8 +69,19 @@ contract StremeZap {
         if (stakingContract != address(0)) {
             // approve the staking contract to spend the amountOut:
             IERC20(stremeCoin).approve(stakingContract, amountOut);
-            IStremeStaking(stakingContract).stake(msg.sender, amountOut);
+            if (funderContract != address(0)) {
+                // if a funder contract is provided, first stake and return the staked tokens to this contract
+                IStremeStaking(stakingContract).stake(address(this), amountOut);
+                // approve the funder contract to spend the amountOut:
+                IERC20(stakingContract).approve(funderContract, amountOut);
+                IStremeFunder(funderContract).depositForUser(msg.sender, amountOut);
+            } else {
+                // otherwise stake directly, staked tokens to the sender
+                IStremeStaking(stakingContract).stake(msg.sender, amountOut);
+            }
         }
+
+        emit ZapCompleted(stremeCoin, msg.value, amountOut, stakingContract, funderContract);
     }
     
 }
