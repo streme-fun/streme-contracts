@@ -253,6 +253,25 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         require(totalUnits > 0, "StremeVault: Total units cannot be zero");
     }
 
+    // batch version of updateMemberUnits
+    function updateMemberUnitsBatch(
+        address token,
+        address admin,
+        address[] calldata members,
+        uint128[] calldata newUnits
+    ) external {
+        require(allocations[token][admin].pool != address(0), "StremeVault: Pool does not exist");
+        // only the admin can update the member units
+        require(msg.sender == allocations[token][admin].admin, "StremeVault: Unauthorized");
+        require(members.length == newUnits.length, "StremeVault: Members and units length mismatch");
+        for (uint256 i = 0; i < members.length; i++) {
+            IDistributionPool(allocations[token][admin].pool).updateMemberUnits(members[i], newUnits[i]);
+        }
+        // revert if this results in zero total units in the pool
+        uint128 totalUnits = IDistributionPool(allocations[token][admin].pool).getTotalUnits();
+        require(totalUnits > 0, "StremeVault: Total units cannot be zero");
+    }
+
     function getUnits(address token, address admin, address member) external view returns (uint128) {
         require(allocations[token][admin].pool != address(0), "StremeVault: Pool does not exist");
         return IDistributionPool(allocations[token][admin].pool).getUnits(member);
