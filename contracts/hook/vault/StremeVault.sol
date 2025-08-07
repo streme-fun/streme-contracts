@@ -59,7 +59,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         address indexed admin,
         uint256 supply,
         uint256 lockupDuration,
-        uint256 vestingDuration
+        uint256 vestingDuration,
+        address pool
     );
 
     event AllocationAdminUpdated(
@@ -104,13 +105,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             lockupEndTime: lockupEndTime,
             vestingEndTime: lockupEndTime + vestingDuration,
             admin: admin,
-            pool: address(0) // pool will be created later
+            pool: _createPool(token, admin)
         });
-
-        // if vesting required, create the GDA pool
-        if (vestingDuration > 0) {
-            allocations[token][admin].pool = _createPool(token, admin);
-        }
 
         // pull in token
         if (!IERC20(token).transferFrom(msg.sender, address(this), supply)) {
@@ -122,7 +118,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             admin: admin,
             supply: supply,
             lockupDuration: lockupDuration,
-            vestingDuration: vestingDuration
+            vestingDuration: vestingDuration,
+            pool: allocations[token][admin].pool
         });
     }
 
@@ -136,9 +133,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         delete allocations[token][oldAdmin];
         allocations[token][newAdmin].admin = newAdmin;
 
-        // is pool address set?
-        if (allocations[token][newAdmin].pool != address(0)) {
-            // move memberUints from old admin to new admin
+        // move memberUints from old admin to new admin if admin has units in the pool
+        if (IDistributionPool(allocations[token][newAdmin].pool).getUnits(oldAdmin) > 0) {
             IDistributionPool(allocations[token][newAdmin].pool).updateMemberUnits(newAdmin, 
                 IDistributionPool(allocations[token][newAdmin].pool).getUnits(oldAdmin)
             );
@@ -171,19 +167,9 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         // update the amount claimed
         allocations[token][admin].amountClaimed += amountToClaim;
 
-        //if (!IERC20(token).transfer(allocations[token][admin].admin, amountToClaim)) {
-        //    revert TransferFailed();
-        //}
-        
-        if (allocations[token][admin].pool == address(0)) {
-            if (!IERC20(token).transfer(allocations[token][admin].admin, amountToClaim)) {
-                revert TransferFailed();
-            }
-        } else {
-            // use GDA to distribute amountToClaim instantly
-            if (!gdaForwarder.distribute(token, address(this), allocations[token][admin].pool, amountToClaim, "")) {
-                revert TransferFailed();
-            }
+        // use GDA to distribute amountToClaim instantly
+        if (!gdaForwarder.distribute(token, address(this), allocations[token][admin].pool, amountToClaim, "")) {
+            revert TransferFailed();
         }
 
         // amountToClaim is less than the total amount:
@@ -192,10 +178,6 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             uint256 remainingAmount = allocations[token][admin].amountTotal - allocations[token][admin].amountClaimed;
             // claculate flowRate per second for the remaining amount
             int96 flowRate = int96(uint96(remainingAmount / (allocations[token][admin].vestingEndTime - block.timestamp)));
-            // create the pool if it doesn't exist ... but it should already exist
-            if (allocations[token][admin].pool == address(0)) {
-                allocations[token][admin].pool = _createPool(token, admin);
-            }
             // distrubute the flow:
             gdaForwarder.distributeFlow(token, address(this), allocations[token][admin].pool, flowRate, "");
             // set allocation to 100% claimed:
