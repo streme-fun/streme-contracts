@@ -5,33 +5,27 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-interface ICFAv1Forwarder {
-    function createFlow(
-        address token, 
-        address sender, 
-        address receiver, 
-        int96 flowrate, 
-        bytes memory userData
-    ) external returns (bool);
-    function updateFlow(
-        address token, 
-        address sender, 
-        address receiver, 
-        int96 flowrate, 
-        bytes memory userData
-    ) external returns (bool);
-    function deleteFlow(
-        address token, 
-        address sender, 
-        address receiver, 
-        bytes memory userData
-    ) external returns (bool);
+interface IDistributionPool {
+    function getUnits(address memberAddr) external view returns (uint128);
+    function updateMemberUnits(address memberAddr, uint128 newUnits) external returns (bool);
+}
+
+interface IGDAv1Forwarder {
+    struct PoolConfig {
+        bool transferabilityForUnitsOwner;
+        bool distributionFromAnyAddress;
+    }
+    function createPool(address superTokenAddress, address admin, PoolConfig memory config) external returns (bool success, address pool);
+    function getFlowDistributionFlowRate(address superTokenAddress, address from, address to) external view returns (int96);
+    function distributeFlow(address superTokenAddress, address from, address poolAddress, int96 requestedFlowRate, bytes calldata userData) external returns (bool);
+    function distribute(address token, address from, address pool, uint256 requestedAmount, bytes calldata userData) external returns (bool);
 }
 
 contract StremeVault is ReentrancyGuard, AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
-    ICFAv1Forwarder public cfaForwarder;
+    IGDAv1Forwarder public gdaForwarder;
+    IGDAv1Forwarder.PoolConfig public config = IGDAv1Forwarder.PoolConfig(false, true);
 
     struct Allocation {
         address token;
@@ -40,6 +34,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         uint256 lockupEndTime;
         uint256 vestingEndTime;
         address admin;
+        address pool; // GDA pool address
     }
 
     // OLD: mapping(address => Allocation) public allocation;
@@ -72,11 +67,11 @@ contract StremeVault is ReentrancyGuard, AccessControl {
 
     event AllocationClaimed(address indexed token, uint256 amount, uint256 remainingAmount);
 
-    constructor(ICFAv1Forwarder _cfaForwarder) {
+    constructor(IGDAv1Forwarder _gdaForwarder) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         _grantRole(DEPLOYER_ROLE, msg.sender);
-        cfaForwarder = _cfaForwarder;
+        gdaForwarder = _gdaForwarder;
     }
 
     function receiveTokens(
@@ -107,8 +102,14 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             amountClaimed: 0,
             lockupEndTime: lockupEndTime,
             vestingEndTime: lockupEndTime + vestingDuration,
-            admin: admin
+            admin: admin,
+            pool: address(0) // pool will be created later
         });
+
+        // if vesting required, create the GDA pool
+        if (vestingDuration > 0) {
+            allocations[token][admin].pool = _createPool(token, admin);
+        }
 
         // pull in token
         if (!IERC20(token).transferFrom(msg.sender, address(this), supply)) {
@@ -134,11 +135,13 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         delete allocations[token][oldAdmin];
         allocations[token][newAdmin].admin = newAdmin;
 
-        // if amount claimed > zero, then the stream is already started
-        if (allocations[token][newAdmin].amountClaimed > 0) {
-            // TODO: move the GDA pool units or stream to the new admin
-        
-
+        // is pool address set?
+        if (allocations[token][newAdmin].pool != address(0)) {
+            // move memberUints from old admin to new admin
+            IDistributionPool(allocations[token][newAdmin].pool).updateMemberUnits(newAdmin, 
+                IDistributionPool(allocations[token][newAdmin].pool).getUnits(oldAdmin)
+            );
+            IDistributionPool(allocations[token][newAdmin].pool).updateMemberUnits(oldAdmin, 0);
         }
 
         emit AllocationAdminUpdated(token, msg.sender, newAdmin);
@@ -149,6 +152,10 @@ contract StremeVault is ReentrancyGuard, AccessControl {
     }
 
     function claim(address token, address admin) external nonReentrant {
+        // does allocation exist?
+        if (allocations[token][admin].lockupEndTime == 0) {
+            revert AllocationNotUnlocked();
+        }
         // ensure lockup period has passed
         if (block.timestamp < allocations[token][admin].lockupEndTime) {
             revert AllocationNotUnlocked();
@@ -163,7 +170,12 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         // update the amount claimed
         allocations[token][admin].amountClaimed += amountToClaim;
 
-        if (!IERC20(token).transfer(allocations[token][admin].admin, amountToClaim)) {
+        //if (!IERC20(token).transfer(allocations[token][admin].admin, amountToClaim)) {
+        //    revert TransferFailed();
+        //}
+        
+        // use GDA to distribute amountToClaim instantly
+        if (!gdaForwarder.distribute(token, address(this), allocations[token][admin].pool, amountToClaim, "")) {
             revert TransferFailed();
         }
 
@@ -173,14 +185,14 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             uint256 remainingAmount = allocations[token][admin].amountTotal - allocations[token][admin].amountClaimed;
             // claculate flowRate per second for the remaining amount
             int96 flowRate = int96(uint96(remainingAmount / (allocations[token][admin].vestingEndTime - block.timestamp)));
-            // TODO: create stream for the remaining amount
-            cfaForwarder.createFlow(
-                token,
-                address(this),
-                allocations[token][admin].admin,
-                flowRate,
-                ""
-            );
+            // create the pool if it doesn't exist ... but it should already exist
+            if (allocations[token][admin].pool == address(0)) {
+                allocations[token][admin].pool = _createPool(token, admin);
+            }
+            // distrubute the flow:
+            gdaForwarder.distributeFlow(token, address(this), allocations[token][admin].pool, flowRate, "");
+            // set allocation to 100% claimed:
+            allocations[token][admin].amountClaimed = allocations[token][admin].amountTotal;
         }
 
         emit AllocationClaimed(token, amountToClaim, allocations[token][admin].amountTotal - amountToClaim);
@@ -204,6 +216,16 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         }
     }
 
+    function _createPool(
+        address token,
+        address admin
+    ) internal returns (address pool) {
+        (bool success, address newPool) = gdaForwarder.createPool(token, address(this), config);
+        require(success, "StremeVault: Pool creation failed");
+        IDistributionPool(newPool).updateMemberUnits(admin, 1);
+        return newPool;
+    }
+
     function allocation(address token, address admin) external view
         returns (
             address tokenAddress,
@@ -211,7 +233,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             uint256 amountClaimed,
             uint256 lockupEndTime,
             uint256 vestingEndTime,
-            address allocationAdmin
+            address allocationAdmin,
+            address pool
         ) {
         Allocation storage alloc = allocations[token][admin];
         return (
@@ -220,7 +243,26 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             alloc.amountClaimed,
             alloc.lockupEndTime,
             alloc.vestingEndTime,
-            alloc.admin
+            alloc.admin,
+            alloc.pool
         );
+    }
+
+    // Functions for managing the allocation pool:
+    function updateMemberUnits(
+        address token,
+        address admin,
+        address member,
+        uint128 newUnits
+    ) external {
+        require(allocations[token][admin].pool != address(0), "StremeVault: Pool does not exist");
+        // only the admin can update the member units
+        require(msg.sender == allocations[token][admin].admin, "StremeVault: Unauthorized");
+        IDistributionPool(allocations[token][admin].pool).updateMemberUnits(member, newUnits);
+    }
+
+    function getUnits(address token, address admin, address member) external view returns (uint128) {
+        require(allocations[token][admin].pool != address(0), "StremeVault: Pool does not exist");
+        return IDistributionPool(allocations[token][admin].pool).getUnits(member);
     }
 }
