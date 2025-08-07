@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface IDistributionPool {
     function getUnits(address memberAddr) external view returns (uint128);
+    function getTotalUnits() external view returns (uint128);
     function updateMemberUnits(address memberAddr, uint128 newUnits) external returns (bool);
 }
 
@@ -265,6 +266,9 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         // only the admin can update the member units
         require(msg.sender == allocations[token][admin].admin, "StremeVault: Unauthorized");
         IDistributionPool(allocations[token][admin].pool).updateMemberUnits(member, newUnits);
+        // revert if this resuls in zero total units in the pool
+        uint128 totalUnits = IDistributionPool(allocations[token][admin].pool).getTotalUnits();
+        require(totalUnits > 0, "StremeVault: Total units cannot be zero");
     }
 
     function getUnits(address token, address admin, address member) external view returns (uint128) {
