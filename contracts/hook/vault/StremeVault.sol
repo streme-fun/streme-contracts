@@ -174,9 +174,15 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         //    revert TransferFailed();
         //}
         
-        // use GDA to distribute amountToClaim instantly
-        if (!gdaForwarder.distribute(token, address(this), allocations[token][admin].pool, amountToClaim, "")) {
-            revert TransferFailed();
+        if (allocations[token][admin].pool == address(0)) {
+            if (!IERC20(token).transfer(allocations[token][admin].admin, amountToClaim)) {
+                revert TransferFailed();
+            }
+        } else {
+            // use GDA to distribute amountToClaim instantly
+            if (!gdaForwarder.distribute(token, address(this), allocations[token][admin].pool, amountToClaim, "")) {
+                revert TransferFailed();
+            }
         }
 
         // amountToClaim is less than the total amount:
