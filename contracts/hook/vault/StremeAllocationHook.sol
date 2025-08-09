@@ -116,7 +116,7 @@ contract StremeAllocationHook is AccessControl {
                 // approve the staking factory to spend the tokens
                 IERC20(token).approve(address(stakingFactory), amount);
                 // call the staking factory to receive the tokens
-                stakingFactory.receiveTokens(token, config[i].admin, amount, config[i].data);
+                stakingFactory.receiveTokens(token, admin, amount, config[i].data);
             } else if (config[i].allocationType == AllocationType.LP) {
                 // For now, LP is handled separately, and not as an allocation
                 revert NotImplemented();
