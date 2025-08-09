@@ -61,8 +61,7 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         address _stakeableToken, 
         address _pool, 
         uint256 _lockDuration,
-        address _teamRecipient,
-        address _stremeEvents
+        address _teamRecipient
     ) initializer public {
         __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
