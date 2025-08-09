@@ -36,7 +36,7 @@ interface IStakedToken {
     ) external;
 }
 
-contract StakingFactory is AccessControl {
+contract StakingFactoryV2 is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
     IGDAv1Forwarder public gda;
