@@ -70,7 +70,20 @@ contract StremeAllocationHook is AccessControl {
             revert AllocationAlreadyExists();
         }
         for (uint i = 0; i < configs.length; i++) {
-            // TODO: validate config? Or let the hook handle it? Max percentage for vault? for staking?
+            // the total of percentage for each config must be <= 90 (90%)
+            uint256 totalPercentage = 0;
+            for (uint j = 0; j < configs.length; j++) {
+                totalPercentage += configs[j].percentage;
+            }
+            require(totalPercentage <= 90, "Total percentage must be <= 90");
+            // if type is vault, configs[i].admin must be unique for each vault config
+            if (configs[i].allocationType == AllocationType.Vault) {
+                for (uint j = 0; j < i; j++) {
+                    if (configs[j].allocationType == AllocationType.Vault && configs[j].admin == configs[i].admin) {
+                        revert AllocationAlreadyExists();
+                    }
+                }
+            }
             allocationConfigs[token].push(configs[i]);
             emit AllocationConfigCreated(
                 configs[i].allocationType,
@@ -118,7 +131,7 @@ contract StremeAllocationHook is AccessControl {
                 // call the staking factory to receive the tokens
                 stakingFactory.receiveTokens(token, admin, amount, config[i].data);
             } else if (config[i].allocationType == AllocationType.LP) {
-                // For now, LP is handled separately, and not as an allocation
+                // For now, LP is handled separately, and NOT as an allocation
                 revert NotImplemented();
             } else {
                 revert NotImplemented();    
