@@ -61,14 +61,26 @@ contract StakingFactory is AccessControl {
         teamRecipient = _teamRecipient;
     }
 
-    function hook(
+    function receiveTokens(
         address stakeableToken,
-        address admin
+        address admin,
+        uint256 supply,
+        bytes calldata data
     ) external onlyRole(DEPLOYER_ROLE) returns (address) {
         // @dev 1. Create a new staked token -- stakeableToken must be a super token
         //bytes32 salt = keccak256(abi.encode(msg.sender, symbol));
         // convert superTokenAddress to bytes32:
         bytes32 salt = keccak256(abi.encode(stakeableToken));
+
+        // parse the data for lockup and vesting durations
+        (uint256 stakingLockDuration, int96 stakingFlowDuration) = abi.decode(data, (uint256, int96));
+        // if zeroes, use the default values
+        if (stakingLockDuration == 0) {
+            stakingLockDuration = lockDuration;
+        }
+        if (stakingFlowDuration == 0) {
+            stakingFlowDuration = flowDuration;
+        }
         
         address stakedToken = Clones.cloneDeterministic(stakedTokenImplementation, salt);
 
@@ -79,15 +91,15 @@ contract StakingFactory is AccessControl {
         // @dev 3. Initialize the staked token
         string memory name = string(abi.encodePacked("Staked ", IERC20(stakeableToken).name()));
         string memory symbol = string(abi.encodePacked("st", IERC20(stakeableToken).symbol()));
-        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration, teamRecipient);
+        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, stakingLockDuration, teamRecipient);
 
         // @dev 4. Transfer reward amount to this contract
-        uint256 allowance = IERC20(stakeableToken).allowance(msg.sender, address(this));
-        uint256 amount = allowance * percentageForRewards / 100;
-        IERC20(stakeableToken).transferFrom(msg.sender, address(this), amount);
+        //uint256 allowance = IERC20(stakeableToken).allowance(msg.sender, address(this));
+        //uint256 amount = allowance * percentageForRewards / 100;
+        IERC20(stakeableToken).transferFrom(msg.sender, address(this), supply);
 
         // @dev 5. Distribute the reward flow
-        int96 flowRate = int96(uint96(amount)) / flowDuration;
+        int96 flowRate = int96(uint96(supply)) / stakingFlowDuration;
         gda.distributeFlow(stakeableToken, address(this), pool, flowRate, "");
         emit StakedTokenCreated(stakedToken, stakeableToken, pool);
 

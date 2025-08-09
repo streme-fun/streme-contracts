@@ -5,28 +5,20 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 //import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 
-interface IStremeVault {
+interface IStremeAllocator {
     function receiveTokens(
         address token,
         address admin,
         uint256 supply,
-        uint256 lockupDuration,
-        uint256 vestingDuration
+        bytes calldata data
     ) external;
-}
-
-interface IStakingFactory {
-    function hook(
-        address token,
-        address admin
-    ) external returns (address);
 }
 
 contract StremeAllocationHook is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
-    IStremeVault public vault;
-    IStakingFactory public stakingFactory;
+    IStremeAllocator public vault;
+    IStremeAllocator public stakingFactory;
 
     enum AllocationType {
         Vault,
@@ -62,7 +54,7 @@ contract StremeAllocationHook is AccessControl {
     ];
 
     
-    constructor(IStremeVault _vault, IStakingFactory _stakingFactory) {
+    constructor(IStremeAllocator _vault, IStremeAllocator _stakingFactory) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         vault = _vault;
@@ -110,18 +102,21 @@ contract StremeAllocationHook is AccessControl {
         uint256 supply = IERC20(token).totalSupply();
 
         for (uint i = 0; i < config.length; i++) {
+            // allowance to the vault config.percentage
+            uint256 amount = (supply * config[i].percentage) / 100;
+            IERC20(token).transferFrom(msg.sender, address(this), amount);
+
             if (config[i].allocationType == AllocationType.Vault) {
-                // allowance to the vault config.percentage
-                uint256 amount = (supply * config[i].percentage) / 100;
                 // approve the vault to spend the tokens
                 IERC20(token).approve(address(vault), amount);
-                // decode data
-                (address beneficiary, uint256 lockupDuration, uint256 vestingDuration) = abi.decode(config[i].data, (address, uint256, uint256));
-                IERC20(token).transferFrom(msg.sender, address(this), amount);
                 // call the vault to receive the tokens
-                vault.receiveTokens(token, beneficiary, amount, lockupDuration, vestingDuration);
+                vault.receiveTokens(token, config[i].admin, amount, config[i].data);
             } else if (config[i].allocationType == AllocationType.Staking) {
-                // TODO: handle the staking allocation
+                // handle the staking allocation
+                // approve the staking factory to spend the tokens
+                IERC20(token).approve(address(stakingFactory), amount);
+                // call the staking factory to receive the tokens
+                stakingFactory.receiveTokens(token, config[i].admin, amount, config[i].data);
             } else if (config[i].allocationType == AllocationType.LP) {
                 // For now, LP is handled separately, and not as an allocation
                 revert NotImplemented();
@@ -130,6 +125,14 @@ contract StremeAllocationHook is AccessControl {
             }
         }
         return token;
+    }
+
+    function setVault(IStremeAllocator _vault) external onlyRole(MANAGER_ROLE) {
+        vault = _vault;
+    }
+
+    function setStakingFactory(IStremeAllocator _stakingFactory) external onlyRole(MANAGER_ROLE) {
+        stakingFactory = _stakingFactory;
     }
 
 }

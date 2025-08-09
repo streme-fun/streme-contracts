@@ -80,9 +80,9 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         address token,
         address admin,
         uint256 supply,
-        uint256 lockupDuration,
-        uint256 vestingDuration
+        bytes calldata data
     ) external nonReentrant onlyRole(DEPLOYER_ROLE) {
+        (uint256 lockupDuration, uint256 vestingDuration) = abi.decode(data, (uint256, uint256));
         uint256 lockupEndTime = block.timestamp + lockupDuration;
 
         // check that minimum lockup duration is met
