@@ -12,7 +12,7 @@ interface IDistributionPool {
     function updateMemberUnits(address memberAddr, uint128 newUnits) external returns (bool);
 }
 
-contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
+contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     IERC20 public stakeableToken;
     mapping(address account => uint256) public depositTimestamps;
