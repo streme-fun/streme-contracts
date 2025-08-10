@@ -31,6 +31,8 @@ const {
         addr.streme = process.env.STREME;
         addr.lpLocker = process.env.STREME_LIQUIDITY_LOCKER;
         addr.stremeVault = process.env.STREME_VAULT; // new
+        addr.gdaForwarder = process.env.GDA_FORWARDER;
+        addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
     } else {
         console.log("chain not supported");
         return;
@@ -47,6 +49,56 @@ const {
     } // end deployContracts
   
     describe.skip("Create Token", function () {
+
+      it("should deploy StremeVault", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const [signer] = await ethers.getSigners();
+        const Vault = await ethers.getContractFactory("StremeVault", signer);
+        const vault = await Vault.deploy(addr.gdaForwarder);
+        console.log("Vault deployed to: ", minterInstance.target);
+        addr.stremeVault = vault.target;
+        expect(addr.stremeVault).to.not.be.undefined;
+      }); // end it
+
+      it("should deploy StakedTokenV2 implementation", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const [signer] = await ethers.getSigners();
+        const StakedToken = await ethers.getContractFactory("StakedTokenV2", signer);
+        const stakedToken = await StakedToken.deploy();
+        console.log("StakedToken implementation deployed to: ", stakedToken.target);
+        addr.stakedTokenImplementation = stakedToken.target;
+        expect(addr.stakedTokenImplementation).to.not.be.undefined;
+      }); // end it
+
+      it("should deploy StakingFactoryV2", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const [signer] = await ethers.getSigners();
+        const StakingFactory = await ethers.getContractFactory("StakingFactoryV2", signer);
+        const factory = await StakingFactory.deploy(addr.gdaForwarder, addr.stakedTokenImplementation, addr.teamRecipient);
+        console.log("StakingFactory deployed to: ", factory.target);
+        addr.stakingFactory = factory.target;
+        expect(addr.stakingFactory).to.not.be.undefined;
+      }); // end it
+
+      it("should deploy StremeAllocationHook", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
+        const [signer] = await ethers.getSigners();
+        const StremeAllocationHook = await ethers.getContractFactory("StremeAllocationHook", signer);
+        const stremeAllocationHook = await StremeAllocationHook.deploy(addr.stremeVault, addr.stakingFactory);
+        console.log("StremeAllocationHook deployed to: ", stremeAllocationHook.target);
+        addr.postDeployFactory = stremeAllocationHook.target;
+        expect(addr.postDeployFactory).to.not.be.undefined;
+      }); // end it
+
+      // TODO: permissions for the new contracts??
   
       it("should deploy token", async function () {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
