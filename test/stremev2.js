@@ -48,7 +48,7 @@ const {
   
     } // end deployContracts
   
-    describe.skip("Create Token", function () {
+    describe("Create Token", function () {
 
       it("should deploy StremeVault", async function () {
         // set timeout
