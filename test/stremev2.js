@@ -172,7 +172,52 @@ const {
 
         // create allocations
 
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
 
+        const days = 86400;
+
+        // 3 allocations, 2 for vault, 1 for staking
+        const allocations = [
+            {
+                allocationType: 0, // Vault
+                admin: process.env.STREME_ADMIN, // beneficiary address
+                percentage: 10, // 10%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [30*days, 180*days] // 30 day cliff, 180 day vesting
+                )
+            },
+            {
+                allocationType: 0, // Vault
+                admin: process.env.KRAMER, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [7*days, 0] // 7 day cliff, no vesting
+                )
+            },
+            {
+                allocationType: 1, // Staking
+                admin: ethers.ZeroAddress, // zero address for Staking allocations
+                percentage: 10, // 10%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "int96"],
+                    [1*days, 365*days] // 1 day lockup, 365 days for staking rewards stream
+                )
+            }
+        ];
+        // now createAllocationConfig on StremeAllocationHook
+        const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
+        const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
+
+        const tx = await stremeAllocationHook.createAllocationConfig(
+            tokenAddress,
+            allocations
+        );
+        console.log("createAllocationConfig tx: ", tx.hash);
+        await tx.wait();
+        console.log("createAllocationConfig tx mined");
+        
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
         await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
         console.log("Token Address: ", tokenAddress);

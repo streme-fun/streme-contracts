@@ -57,6 +57,7 @@ contract StremeAllocationHook is AccessControl {
     constructor(IStremeAllocator _vault, IStremeAllocator _stakingFactory) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
+        _grantRole(DEPLOYER_ROLE, msg.sender);
         vault = _vault;
         stakingFactory = _stakingFactory;
     }
