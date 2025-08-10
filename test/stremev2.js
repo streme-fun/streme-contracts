@@ -57,7 +57,7 @@ const {
         const [signer] = await ethers.getSigners();
         const Vault = await ethers.getContractFactory("StremeVault", signer);
         const vault = await Vault.deploy(addr.gdaForwarder);
-        console.log("Vault deployed to: ", minterInstance.target);
+        console.log("Vault deployed to: ", vault.target);
         addr.stremeVault = vault.target;
         expect(addr.stremeVault).to.not.be.undefined;
       }); // end it
