@@ -121,8 +121,10 @@ const {
         const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
         const [signer] = await ethers.getSigners();
         const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
-        const tx = await stremeAllocationHook.grantRole(stremeAllocationHook.DEPLOYER_ROLE(), addr.stakingFactory);
-        console.log("Granted DEPLOYER_ROLE to StakingFactory contract: ", tx.hash);
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactory = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, signer);
+        const tx = await stakingFactory.grantRole(stakingFactory.DEPLOYER_ROLE(), addr.postDeployFactory);
+        console.log("Granted DEPLOYER_ROLE to StremeAllocationHook contract on StakingFactory: ", tx.hash);
         expect(tx).to.not.be.undefined;
       }); // end it
 
@@ -137,6 +139,18 @@ const {
         const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
         const tx = await stremeVault.grantRole(stremeVault.DEPLOYER_ROLE(), addr.postDeployFactory);
         console.log("Granted DEPLOYER_ROLE to StremeAllocationHook contract on StremeVault: ", tx.hash);
+        expect(tx).to.not.be.undefined;
+      }); // end it
+
+      // register StremeAllocationHook on Streme conrtracxt via registerPostDeployHook function
+      it("should register StremeAllocationHook on Streme contract", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [first, signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(addr.streme, stremeJSON.abi, signer);
+        const tx = await streme.registerPostDeployHook(addr.postDeployFactory, true);
+        console.log("Registered StremeAllocationHook on Streme contract: ", tx.hash);
         expect(tx).to.not.be.undefined;
       }); // end it
   
