@@ -2,7 +2,7 @@ require("@nomicfoundation/hardhat-toolbox");
 
 const dot = require('dotenv').config();
 
-const { PRIVATE_KEY, API_URL_BASESEPOLIA, API_URL_SEPOLIA, API_URL_BASE, API_URL_DEGEN, BASESCAN_API_KEY, ETHERSCAN_API_KEY, PRIVATE_KEY_STREME_DEPLOYER} = process.env;
+const { PRIVATE_KEY, API_URL_BASESEPOLIA, API_URL_SEPOLIA, API_URL_BASE, API_URL_DEGEN, BASESCAN_API_KEY, ETHERSCAN_API_KEY, PRIVATE_KEY_STREME_DEPLOYER, PRIVATE_KEY_GEORGE} = process.env;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -21,7 +21,8 @@ module.exports = {
     hardhat: {
       accounts: [
         { privateKey: `0x${PRIVATE_KEY}`, balance: "10000000000000000000000"},
-        { privateKey: `0x${PRIVATE_KEY_STREME_DEPLOYER}`, balance: "10000000000000000000000"}
+        { privateKey: `0x${PRIVATE_KEY_STREME_DEPLOYER}`, balance: "10000000000000000000000"},
+        { privateKey: `0x${PRIVATE_KEY_GEORGE}`, balance: "10000000000000000000000"}
       ],
       forking: {
         url: process.env.API_URL_BASE,

@@ -38,6 +38,8 @@ const {
         return;
     }
 
+    var allocations;
+
   
   describe("Streme v2", function () {
     // We define a fixture to reuse the same setup in every test.
@@ -182,6 +184,7 @@ const {
         tokenAddress = result[1];
         console.log("Salt: ", salt);
         console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
         tokenConfig["_salt"] = salt;
 
         // create allocations
@@ -191,7 +194,7 @@ const {
         const days = 86400;
 
         // 3 allocations, 2 for vault, 1 for staking
-        const allocations = [
+        allocations = [
             {
                 allocationType: 0, // Vault
                 admin: process.env.STREME_ADMIN, // beneficiary address
@@ -237,10 +240,125 @@ const {
         console.log("Token Address: ", tokenAddress);
         expect(tokenAddress).to.not.be.empty;
       }); // end it
-  
-  
+
+      // check each vault allocation by calling the allocation() function on the vault:
+      it("should return the details of each of the two vault allocations", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+
+        // check each allocation
+        for (const allocation of allocations) {
+          if (allocation.allocationType !== 0) continue; // skip non-vault allocations
+          const details = await stremeVault.allocation(addr.tokenAddress, allocation.admin);
+          console.log("Allocation details: ", details);
+          expect(details).to.not.be.empty;
+        }
+      });
+
+      // check the balanceOf of tokenAddress for the stremeVault to ensure that it matches the totals of each vault allocation in the configs
+      it("should return the correct balanceOf for the stremeVault", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        // balanceOf ABI:
+        const abi = [
+          "function balanceOf(address account) view returns (uint256)",
+          "function totalSupply() view returns (uint256)"
+        ];
+        const stremeCoin = new ethers.Contract(addr.tokenAddress, abi, signer);
+        const balance = await stremeCoin.balanceOf(addr.stremeVault);
+        console.log("StremeVault balanceOf: ", balance.toString());
+        // calculate the total of each vault allocation
+        let totalAllocation = 0;
+        for (const allocation of allocations) {
+          if (allocation.allocationType !== 0) continue; // skip non-vault allocations
+          totalAllocation += allocation.percentage;
+        }
+        // totalAllocation is percent of stremeCoin.totalSupply()
+        const totalSupply = await stremeCoin.totalSupply();
+        console.log("StremeCoin totalSupply: ", BigInt(totalSupply));
+        console.log("StremeVault totalAllocation: ", BigInt(totalAllocation));
+        console.log("100n", 100n);
+        totalAllocation = BigInt(totalSupply) * BigInt(totalAllocation) / 100n;
+        expect(balance).to.equal(totalAllocation);
+      });
+
+      it("should add 2 member units to the first vault allocation", async function() {
+        // timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        const allocation = allocations[0];
+        const tx = await stremeVault.updateMemberUnits(addr.tokenAddress, allocation.admin, process.env.KRAMER, 2);
+        console.log("updateMemberUnits tx: ", tx.hash);
+        await tx.wait();
+        console.log("updateMemberUnits tx mined");
+        // get allocation details
+        const details = await stremeVault.allocation(addr.tokenAddress, allocation.admin);
+        console.log("Allocation details: ", details);
+        const poolAddress = details.pool;
+        console.log("Pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const units = await pool.getUnits(process.env.KRAMER);
+        console.log("Pool units: ", units.toString());
+        expect(units).to.equal(2n); // should be 2 units  
+      }); // end it
+
+      it("should change vault admin from signer to George", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        const allocation = allocations[0];
+        const tx = await stremeVault.editAllocationAdmin(addr.tokenAddress, allocation.admin, process.env.GEORGE);
+        console.log("editAllocationAdmin tx: ", tx.hash);
+        await tx.wait();
+        console.log("editAllocationAdmin tx mined");
+        // get allocation details
+        var details = await stremeVault.allocation(addr.tokenAddress, allocation.admin);
+        console.log("Allocation details: ", details);
+        // expect allocation to be empty
+        expect(details[5]).to.equal(ethers.ZeroAddress);
+        details = await stremeVault.allocation(addr.tokenAddress, process.env.GEORGE);
+        console.log("Allocation details: ", details);
+        expect(details[5]).to.equal(process.env.GEORGE);
+      });
+
+      it("should allow George to add 2 member units to the first vault allocation", async function() {
+        // timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        const allocation = allocations[0];
+        const tx = await stremeVault.connect(george).updateMemberUnits(addr.tokenAddress, george.address, george.address, 2);
+        console.log("updateMemberUnits tx: ", tx.hash);
+        await tx.wait();
+        console.log("updateMemberUnits tx mined");
+        // get allocation details
+        const details = await stremeVault.allocation(addr.tokenAddress, george.address);
+        console.log("Allocation details: ", details);
+        const poolAddress = details.pool;
+        console.log("Pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const units = await pool.getUnits(george.address);
+        console.log("Pool units: ", units.toString());
+        expect(units).to.equal(2n); // should be 2 units  
+      }); // end it
+
       
-  
+
     }); // end describe
   
   }); // end describe 
