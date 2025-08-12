@@ -1,21 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/access/AccessControl.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 
 interface IGDAv1Forwarder {
     function distributeFlow(address superTokenAddress, address from, address poolAddress, int96 requestedFlowRate, bytes calldata userData) external returns (bool);
     function distribute(address token, address from, address pool, uint256 requestedAmount, bytes calldata userData) external returns (bool);
 }
 
-contract StremeVaultBox is ReentrancyGuard, AccessControl {
+contract StremeVaultBox is ReentrancyGuardUpgradeable, AccessControlUpgradeable {
     bytes32 public constant VAULT_ROLE = keccak256("VAULT_ROLE");
     IGDAv1Forwarder public gdaForwarder;
     address public token;
     address public pool;
 
-    constructor(IGDAv1Forwarder _gdaForwarder, address _pool, address _token) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(IGDAv1Forwarder _gdaForwarder, address _pool, address _token) initializer public {
+        __ReentrancyGuard_init();
+        __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(VAULT_ROLE, msg.sender);
         gdaForwarder = _gdaForwarder;
