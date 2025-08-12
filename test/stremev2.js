@@ -7,6 +7,7 @@ const {
   // ethers constants
   const { ethers } = require("hardhat");
 
+  const days = 86400;
   const chain = hre.network.name;
   console.log("chain: ", chain);
 
@@ -191,8 +192,6 @@ const {
 
         // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
 
-        const days = 86400;
-
         // 3 allocations, 2 for vault, 1 for staking
         allocations = [
             {
@@ -357,9 +356,79 @@ const {
         expect(units).to.equal(2n); // should be 2 units  
       }); // end it
 
-      
+      it("should revert if claim() called before unlock", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        // expect claim to be reverted:
+        await expect(stremeVault.claim(addr.tokenAddress, george.address)).to.be.reverted;
+      });
+
+      it("should claim() if called after unlock", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        // advance time
+        await ethers.provider.send("evm_increaseTime", [41*days]);
+        await ethers.provider.send("evm_mine");
+        await expect(stremeVault.claim(addr.tokenAddress, george.address)).to.be.fulfilled;
+      });
+
+      it("should confirm that stream is flowing", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        // get allocation details:
+        const details = await stremeVault.allocation(addr.tokenAddress, george.address);
+        console.log("Allocation details: ", details);
+        const poolAddress = details.pool;
+        console.log("Pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)",
+          "function getTotalFlowRate() external view returns (int96)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const flowRate = await pool.getTotalFlowRate();
+        console.log("Flow rate obj: ", flowRate);
+        console.log("Total flow rate: ", flowRate.toString());
+        expect(flowRate).to.be.gt(0);
+      });
+
+      it("should connect george to the pool and check his balance", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        // get allocation details:
+        const details = await stremeVault.allocation(addr.tokenAddress, george.address);
+        console.log("Allocation details: ", details);
+        const poolAddress = details.pool;
+        console.log("Pool address: ", poolAddress);
+        // use gdaForwarder to connect to the pool:
+        const abi = [
+          "function connectPool(address pool, bytes userData) external returns (bool)"
+        ];
+        const gdaForwarder = new ethers.Contract(addr.gdaForwarder, abi, george);
+        await gdaForwarder.connectPool(poolAddress, "0x");
+        // now check george's balance of tokenAddress
+        const tokenContract = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)"
+        ], george);
+        const balance = await tokenContract.balanceOf(george.address);
+        console.log("George's token balance: ", balance.toString());
+        expect(balance).to.be.gt(0);
+      });
 
     }); // end describe
+
+    
   
   }); // end describe 
   
