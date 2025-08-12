@@ -53,13 +53,24 @@ const {
   
     describe("Create Token", function () {
 
+      it("should deploy StremeVaultBox implementation", async function () {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        const StremeVaultBox = await ethers.getContractFactory("StremeVaultBox", signer);
+        const stremeVaultBox = await StremeVaultBox.deploy();
+        console.log("StremeVaultBox deployed to: ", stremeVaultBox.target);
+        addr.stremeVaultBoxImplementation = stremeVaultBox.target;
+        expect(addr.stremeVaultBoxImplementation).to.not.be.undefined;
+      }); // end it
+
       it("should deploy StremeVault", async function () {
         // set timeout
         this.timeout(60000);
         const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
         const [signer] = await ethers.getSigners();
         const Vault = await ethers.getContractFactory("StremeVault", signer);
-        const vault = await Vault.deploy(addr.gdaForwarder);
+        const vault = await Vault.deploy(addr.gdaForwarder, addr.stremeVaultBoxImplementation);
         console.log("Vault deployed to: ", vault.target);
         addr.stremeVault = vault.target;
         expect(addr.stremeVault).to.not.be.undefined;
@@ -258,31 +269,33 @@ const {
       });
 
       // check the balanceOf of tokenAddress for the stremeVault to ensure that it matches the totals of each vault allocation in the configs
-      it("should return the correct balanceOf for the stremeVault", async function() {
+      it("should return the correct balanceOf for the stremeVault Box", async function() {
         // set timeout
         this.timeout(60000);
         const [signer] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        // get allocation details:
+        const details = await stremeVault.allocation(addr.tokenAddress, process.env.STREME_ADMIN);
+        console.log("Allocation details: ", details);
+        addr.boxAddress = details.box;
         // balanceOf ABI:
         const abi = [
           "function balanceOf(address account) view returns (uint256)",
           "function totalSupply() view returns (uint256)"
         ];
         const stremeCoin = new ethers.Contract(addr.tokenAddress, abi, signer);
-        const balance = await stremeCoin.balanceOf(addr.stremeVault);
-        console.log("StremeVault balanceOf: ", balance.toString());
+        const balance = await stremeCoin.balanceOf(addr.boxAddress);
+        console.log("StremeVaultBox balanceOf: ", balance.toString());
         // calculate the total of each vault allocation
-        let totalAllocation = 0;
-        for (const allocation of allocations) {
-          if (allocation.allocationType !== 0) continue; // skip non-vault allocations
-          totalAllocation += allocation.percentage;
-        }
+        let totalAllocation = details.amountTotal;
         // totalAllocation is percent of stremeCoin.totalSupply()
         const totalSupply = await stremeCoin.totalSupply();
         console.log("StremeCoin totalSupply: ", BigInt(totalSupply));
-        console.log("StremeVault totalAllocation: ", BigInt(totalAllocation));
+        //console.log("StremeVaultBox totalAllocation: ", details.amountTotal);
         console.log("100n", 100n);
-        totalAllocation = BigInt(totalSupply) * BigInt(totalAllocation) / 100n;
-        expect(balance).to.equal(totalAllocation);
+        //totalAllocation = BigInt(totalSupply) * amoun / 100n;
+        expect(balance).to.equal(details.amountTotal);
       });
 
       it("should add 2 member units to the first vault allocation", async function() {
