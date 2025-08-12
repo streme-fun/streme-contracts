@@ -191,7 +191,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         require(allocations[token][admin].pool != address(0), "StremeVault: Pool does not exist");
         // the stream can only be stopped after the vestingEndTime
         require(block.timestamp >= allocations[token][admin].vestingEndTime, "StremeVault: Vesting period not ended");
-        // use GDAForwarder to distrubuteFlow to zero:
+        // use GDAForwarder to distributeFlow to zero:
         bool success = gdaForwarder.distributeFlow(token, address(this), allocations[token][admin].pool, 0, "");
         require(success, "StremeVault: Stream stop failed");
     }
