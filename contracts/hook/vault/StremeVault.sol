@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/proxy/Clones.sol";
 
 interface IDistributionPool {
     function getUnits(address memberAddr) external view returns (uint128);
@@ -18,15 +19,20 @@ interface IGDAv1Forwarder {
     }
     function createPool(address superTokenAddress, address admin, PoolConfig memory config) external returns (bool success, address pool);
     function getFlowDistributionFlowRate(address superTokenAddress, address from, address to) external view returns (int96);
-    function distributeFlow(address superTokenAddress, address from, address poolAddress, int96 requestedFlowRate, bytes calldata userData) external returns (bool);
-    function distribute(address token, address from, address pool, uint256 requestedAmount, bytes calldata userData) external returns (bool);
 }
+
+interface IStremeVaultBox {
+    function initialize(IGDAv1Forwarder _gdaForwarder, address _pool, address _token) external;
+    function distributeFlow(int96 requestedFlowRate) external returns (bool);
+    function distribute(uint256 requestedAmount) external returns (bool);
+}  
 
 contract StremeVault is ReentrancyGuard, AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
     IGDAv1Forwarder public gdaForwarder;
     IGDAv1Forwarder.PoolConfig public config = IGDAv1Forwarder.PoolConfig(false, true);
+    address public stremeVaultBoxImplementation;
 
     struct Allocation {
         address token;
@@ -36,6 +42,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         uint256 vestingEndTime;
         address admin;
         address pool; // GDA pool address
+        address box; // StremeVaultBox address
     }
 
     // OLD: mapping(address => Allocation) public allocation;
@@ -60,7 +67,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         uint256 supply,
         uint256 lockupDuration,
         uint256 vestingDuration,
-        address pool
+        address pool,
+        address box
     );
 
     event AllocationAdminUpdated(
@@ -69,11 +77,12 @@ contract StremeVault is ReentrancyGuard, AccessControl {
 
     event AllocationClaimed(address indexed token, uint256 amount, uint256 remainingAmount);
 
-    constructor(IGDAv1Forwarder _gdaForwarder) {
+    constructor(IGDAv1Forwarder _gdaForwarder, address _stremeVaultBoxImplementation) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         _grantRole(DEPLOYER_ROLE, msg.sender);
         gdaForwarder = _gdaForwarder;
+        stremeVaultBoxImplementation = _stremeVaultBoxImplementation;   
     }
 
     function receiveTokens(
@@ -105,11 +114,14 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             lockupEndTime: lockupEndTime,
             vestingEndTime: lockupEndTime + vestingDuration,
             admin: admin,
-            pool: _createPool(token, admin)
+            pool: _createPool(token, admin),
+            box: address(0) // will be set later
         });
+        // create a new box for the allocation
+        allocations[token][admin].box = _createBox(token, admin);
 
         // pull in token
-        if (!IERC20(token).transferFrom(msg.sender, address(this), supply)) {
+        if (!IERC20(token).transferFrom(msg.sender, allocations[token][admin].box, supply)) {
             revert TransferFailed();
         }
 
@@ -119,7 +131,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             supply: supply,
             lockupDuration: lockupDuration,
             vestingDuration: vestingDuration,
-            pool: allocations[token][admin].pool
+            pool: allocations[token][admin].pool,
+            box: allocations[token][admin].box
         });
     }
 
@@ -168,7 +181,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         allocations[token][admin].amountClaimed += amountToClaim;
 
         // use GDA to distribute amountToClaim instantly
-        if (!gdaForwarder.distribute(token, address(this), allocations[token][admin].pool, amountToClaim, "")) {
+        if (!IStremeVaultBox(allocations[token][admin].box).distribute(amountToClaim)) {
             revert TransferFailed();
         }
 
@@ -179,25 +192,12 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             // claculate flowRate per second for the remaining amount
             int96 flowRate = int96(uint96(remainingAmount / (allocations[token][admin].vestingEndTime - block.timestamp)));
             // distrubute the flow:
-            gdaForwarder.distributeFlow(token, address(this), allocations[token][admin].pool, flowRate, "");
+            IStremeVaultBox(allocations[token][admin].box).distributeFlow(flowRate);
             // set allocation to 100% claimed:
             allocations[token][admin].amountClaimed = allocations[token][admin].amountTotal;
         }
 
         emit AllocationClaimed(token, amountToClaim, allocations[token][admin].amountTotal - amountToClaim);
-    }
-
-    function stopStream(address token, address admin) external {
-        require(allocations[token][admin].pool != address(0), "StremeVault: Pool does not exist");
-        // the stream can only be stopped after the vestingEndTime
-        require(block.timestamp >= allocations[token][admin].vestingEndTime, "StremeVault: Vesting period not ended");
-        // use GDAForwarder to distributeFlow to zero:
-        bool success = gdaForwarder.distributeFlow(token, address(this), allocations[token][admin].pool, 0, "");
-        require(success, "StremeVault: Stream stop failed");
-    }
-
-    function canStopStream(address token, address admin) external view returns (bool) {
-        return block.timestamp >= allocations[token][admin].vestingEndTime;
     }
 
     function _getAmountToClaim(address token, address admin) internal view returns (uint256) {
@@ -228,6 +228,14 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         return newPool;
     }
 
+    function _createBox(
+        address token,
+        address admin
+    ) internal returns (address box) {
+        box = Clones.clone(stremeVaultBoxImplementation);
+        IStremeVaultBox(box).initialize(gdaForwarder, allocations[token][admin].pool, token);
+    }
+
     function allocation(address token, address admin) external view
         returns (
             address tokenAddress,
@@ -236,7 +244,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             uint256 lockupEndTime,
             uint256 vestingEndTime,
             address allocationAdmin,
-            address pool
+            address pool,
+            address box
         ) {
         Allocation storage alloc = allocations[token][admin];
         return (
@@ -246,7 +255,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             alloc.lockupEndTime,
             alloc.vestingEndTime,
             alloc.admin,
-            alloc.pool
+            alloc.pool,
+            alloc.box
         );
     }
 
