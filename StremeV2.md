@@ -1,5 +1,7 @@
 ## Streme V2
 
+**DRAFT - subject to change**
+
 Streme V2 expands the possibilities for token creators by offering customization options, which a focus on deploying streaming tokens that meet the needs of teams, projects, apps, developers, and creators. Here are the highlights:
 
 - New Streme Vaults can optionally be created at deployment, with customizable lock duration and (streaming) vesting durations. Create multiple vaults per token. Optionally define (weighted) splits for multiple beneficiaries for each vault.
