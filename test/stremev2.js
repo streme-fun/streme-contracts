@@ -34,6 +34,7 @@ const {
         addr.stremeVault = process.env.STREME_VAULT; // new
         addr.gdaForwarder = process.env.GDA_FORWARDER;
         addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
+        addr.uniswapV3Factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"; 
     } else {
         console.log("chain not supported");
         return;
@@ -246,8 +247,9 @@ const {
         console.log("createAllocationConfig tx mined");
         
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
-        await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
         console.log("Token Address: ", tokenAddress);
+
         expect(tokenAddress).to.not.be.empty;
       }); // end it
 
@@ -438,6 +440,43 @@ const {
         console.log("George's token balance: ", balance.toString());
         expect(balance).to.be.gt(0);
       });
+
+      it("should check the balance of the StakingFactory contract", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        // check the addr.tokenAddress balance for the addr.stakingFactory contract:
+        const token = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)"
+        ], signer);
+        const balance = await token.balanceOf(addr.stakingFactory);
+        console.log("StakingFactory balanceOf: ", balance.toString());
+        expect(balance).to.be.gt(0);
+      });
+
+      it("should check the balance of the uniswap v3 pool", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+
+        const tokenA = addr.tokenAddress;
+        const tokenB = process.env.WETH;
+        const fee = 10000;
+        const abi = [ "function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)" ];
+        const uniswapV3Factory = new ethers.Contract(addr.uniswapV3Factory, abi, signer);
+        addr.uniswapPoolAddress = await uniswapV3Factory.getPool(tokenA, tokenB, fee);
+
+
+
+        // check the addr.tokenAddress balance for the uniswap v3 pool:
+        const token = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)"
+        ], signer);
+        const balance = await token.balanceOf(addr.uniswapPoolAddress);
+        console.log("Uniswap pool balanceOf: ", balance.toString());
+        expect(balance).to.be.gt(0);
+      });
+
 
     }); // end describe
 
