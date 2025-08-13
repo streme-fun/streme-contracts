@@ -2,7 +2,7 @@
 
 **DRAFT - subject to change**
 
-Streme V2 expands the possibilities for token creators by offering customization options, which a focus on deploying streaming tokens that meet the needs of teams, projects, apps, developers, and creators. Here are the highlights:
+Streme V2 expands the possibilities for token creators by offering customization options, with a focus on deploying streaming tokens that meet the needs of teams, projects, apps, developers, and creators. Here are the highlights:
 
 - New Streme Vaults can optionally be created at deployment, with customizable lock duration and (streaming) vesting durations. Create multiple vaults per token. Optionally define (weighted) splits for multiple beneficiaries for each vault.
 - Customizable Staking. By default, 20% of the token supply is allocated to staking rewards, streamed over 365 days. Staking tokens have a default locking duration of 24 hours. With Streme V2, all three can be customized by the token creator. Turn off staking if desired, or change the values to meet your needs.
@@ -10,12 +10,12 @@ Streme V2 expands the possibilities for token creators by offering customization
 
 ### Streme Vaults
 
-Inspired by Clanker Vaults, Streme Vault enables topken creators to put part of the token supply into a _Vault_ at deployment time. For each vault, deployers can define:
+Inspired by Clanker Vaults, Streme Vault enables token creators to put part of the token supply into a _Vault_ at deployment time. For each vault, deployers can define:
 
 - the percentage of total supply to be deposited in the vault
 - an admin/benefiary of the vault
 - a lock duration (period of time that the token will be locked in the vault before being distributed)
-- a vesting duration (once unlocked, the period of time obver which the tokens will be stream-vested)
+- a vesting duration (once unlocked, the period of time over which the tokens will be stream-vested)
 
 #### Supports Multiple Vaults per Token
 
@@ -44,8 +44,8 @@ With Streme V2, token creators can fine-tune staking to meet their needs. For ea
 - lock duration (amount of time after staking, before you can unstake)
 - rewards duration (amount time over which the allocated supply will be streamed to stakers)
 
-To date, both deployers and holders have valued the built-in staking rewards of Streme coins. But staking doesn't fit every use case: in V2 you can turn off staking if you want. Alternatively, you can increase the lock duration to 30 days, reducing sell pressure while rewarding true holders. You can change the _velocity_ of streaming rewards by shortening or lengthening the flow duration: you can stream 100% of the rewards over the first few months, or stretch it out for years. Choose the options that owrk best your needs.
+To date, both deployers and holders have valued the built-in staking rewards of Streme coins. But staking doesn't fit every use case: in V2 you can turn off staking if you want. Alternatively, you can increase the lock duration to 30 days, reducing sell pressure while rewarding true holders. You can change the _velocity_ of streaming rewards by shortening or lengthening the flow duration: you can stream 100% of the rewards over the first few months, or stretch it out for years. Choose the options that work best for your needs.
 
 ### Staking Rewards Delegation
 
-When you stake Streme V2 tokens, you will have the option to delegate the streaming rewards to another wallet or contract address. If you excerise this option, the `stTOKENs` will remain in your wallet, but the streaming rewards will be streamed to the address you delegate. As the holder of the staked tokens, you can change/remove the delegate at any time.
+When you stake Streme V2 tokens, you will have the option to delegate the streaming rewards to another wallet or contract address. If you exercise this option, the `stTOKENs` will remain in your wallet, but the streaming rewards will be streamed to the address you delegate. As the holder of the staked tokens, you can change/remove the delegate at any time.
