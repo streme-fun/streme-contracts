@@ -11,19 +11,16 @@ interface IStremeCrowdfund {
         address _stremeCoin,
         address _stakedStremeCoin,
         address _stakingPoolAddress,
-        address _gdaForwarder,
         address _admin
     ) external;
 }
 
 contract StremeCrowdfundFactory is AccessControl {
     IStremeCrowdfund public implementation;
-    address public gdaForwarder;
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    constructor(IStremeCrowdfund _implementation, address _gdaForwarder) {
+    constructor(IStremeCrowdfund _implementation) {
         implementation = _implementation;
-        gdaForwarder = _gdaForwarder;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
     }
@@ -35,12 +32,8 @@ contract StremeCrowdfundFactory is AccessControl {
         address _admin
     ) external returns (IStremeCrowdfund) {
         IStremeCrowdfund clone = IStremeCrowdfund(Clones.clone(address(implementation)));
-        clone.initialize(_stremeCoin, _stakedStremeCoin, _stakingPoolAddress,  gdaForwarder, _admin);
+        clone.initialize(_stremeCoin, _stakedStremeCoin, _stakingPoolAddress, _admin);
         return clone;
-    }
-
-    function setGDAForwarder(address _gdaForwarder) external onlyRole(MANAGER_ROLE) {
-        gdaForwarder = _gdaForwarder;
     }
 
     function setImplementation(IStremeCrowdfund _implementation) external onlyRole(MANAGER_ROLE) {

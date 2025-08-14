@@ -13,7 +13,7 @@ contract StremeCrowdfund is AccessControlUpgradeable, PausableUpgradeable {
     address public stakingPoolAddress;
     IERC20 public stremeCoin;
     IERC20 public stakedStremeCoin;
-    IGDAv1Forwarder public gdaForwarder;
+    IGDAv1Forwarder public gdaForwarder = IGDAv1Forwarder(0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08);
     mapping(address => uint256) public deposits;
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
@@ -25,13 +25,12 @@ contract StremeCrowdfund is AccessControlUpgradeable, PausableUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _stremeCoin, address _stakedStremeCoin, address _stakingPoolAddress, address _gdaForwarder, address _admin) initializer public {
+    function initialize(address _stremeCoin, address _stakedStremeCoin, address _stakingPoolAddress, address _admin) initializer public {
         __AccessControl_init();
         __Pausable_init();
         stremeCoin = IERC20(_stremeCoin);
         stakedStremeCoin = IERC20(_stakedStremeCoin);
         stakingPoolAddress = _stakingPoolAddress;
-        gdaForwarder = IGDAv1Forwarder(_gdaForwarder);
         _grantRole(DEFAULT_ADMIN_ROLE, _admin);
         _grantRole(MANAGER_ROLE, _admin);
         // connect this contract to the staking pool
