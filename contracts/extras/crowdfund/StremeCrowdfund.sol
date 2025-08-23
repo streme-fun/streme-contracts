@@ -13,7 +13,7 @@ contract StremeCrowdfund is AccessControlUpgradeable, PausableUpgradeable {
     address public stakingPoolAddress;
     IERC20 public stremeCoin;
     IERC20 public stakedStremeCoin;
-    IGDAv1Forwarder public gdaForwarder = IGDAv1Forwarder(0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08);
+    IGDAv1Forwarder public constant gdaForwarder = IGDAv1Forwarder(0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08);
     mapping(address => uint256) public deposits;
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
