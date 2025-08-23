@@ -71,14 +71,15 @@ contract StremeStakingValve is AccessControl {
     }
 
     function openValve(address token) external {
-        require(_balanceThresholdMet(token) || hasRole(MANAGER_ROLE, msg.sender), "Balance threshold not met");
+        require(_balanceThresholdMet(token) || hasRole(MANAGER_ROLE, msg.sender), "Caller is not a manager or Balance threshold not met");
         address stakedToken = stakingFactory.predictStakedTokenAddress(token);
         require(stakedToken != address(0), "Staked token not found");
         stakingFactory.updateMemberUnits(stakedToken, address(stakingFactory), 1);
         emit ValveOpened(token);
     }
 
-    function closeValve(address token) external onlyRole(MANAGER_ROLE) {
+    function closeValve(address token) external {
+        require(hasRole(MANAGER_ROLE, msg.sender) || !_balanceThresholdMet(token), "Caller is not a manager or Balance threshold not met");
         address stakedToken = stakingFactory.predictStakedTokenAddress(token);
         require(stakedToken != address(0), "Staked token not found");
         uint128 units = stakingFactory.valveUnits(token);
