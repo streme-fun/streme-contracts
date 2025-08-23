@@ -49,6 +49,7 @@ contract StakingFactoryV2 is AccessControl {
     uint256 public lockDuration = 1 days;
     address public teamRecipient;
     mapping(address => uint128) public valveUnits;
+    uint256 public percentageToValve = 100;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
     /**
@@ -97,7 +98,7 @@ contract StakingFactoryV2 is AccessControl {
         IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, stakingLockDuration, teamRecipient);
 
         // @dev 3.1 grant safety valve units to this contract, as if someone staked an equivalent amount
-        valveUnits[stakeableToken] = IStakedToken(stakedToken).tokensToUnits(supply);
+        valveUnits[stakeableToken] = IStakedToken(stakedToken).tokensToUnits(supply * percentageToValve / 100);
         IStakedToken(stakedToken).updateMemberUnits(address(this), valveUnits[stakeableToken]);
 
         // @dev 4. Transfer reward amount to this contract
@@ -137,6 +138,10 @@ contract StakingFactoryV2 is AccessControl {
 
     function setGDA(IGDAv1Forwarder _gda) external onlyRole(MANAGER_ROLE) {
         gda = _gda;
+    }
+
+    function setPercentageToValve(uint256 _percentageToValve) external onlyRole(MANAGER_ROLE) {
+        percentageToValve = _percentageToValve;
     }
 
     function setStakedTokenImplementation(address _stakedTokenImplementation) external onlyRole(MANAGER_ROLE) {
