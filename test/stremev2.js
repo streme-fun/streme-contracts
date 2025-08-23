@@ -477,6 +477,34 @@ const {
         expect(balance).to.be.gt(0);
       });
 
+      it("should enable george to create a vault allocation from his balance", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, george);
+        // george creates a vault allocation with 10% of his balance, 7 day cliff, no vesting
+        const token = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)",
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        const balance = await token.balanceOf(george.address);
+        const allocationAmount = balance;
+        // george approves Vault for allocationAmount
+        await token.approve(addr.stremeVault, allocationAmount);
+        const beneficiary = process.env.NEWMAN;
+        await stremeVault.createVault(
+          addr.tokenAddress,
+          beneficiary,
+          allocationAmount,
+          7 * 24 * 60 * 60, // 7 days
+          0 // no vesting
+        );
+        // get allocation details
+        const allocation = await stremeVault.allocations(addr.tokenAddress, beneficiary);
+        console.log("Newman's allocation: ", allocation);
+        expect(allocation.amountTotal).to.equal(allocationAmount);
+      });
 
     }); // end describe
 
