@@ -56,6 +56,7 @@ contract StremeStakingValve is AccessControl {
     IUniswapV3Factory public uniswapFactory;
     INonFungiblePositionManager public positionManager;
     mapping(address => uint256) public balanceThresholds; // for pairing tokens like WETH
+    mapping(address => bool) public lockedValves;
 
     event ValveOpened(address indexed token);
     event ValveClosed(address indexed token);
@@ -75,6 +76,11 @@ contract StremeStakingValve is AccessControl {
         address stakedToken = stakingFactory.predictStakedTokenAddress(token);
         require(stakedToken != address(0), "Staked token not found");
         stakingFactory.updateMemberUnits(stakedToken, address(stakingFactory), 1);
+        if (hasRole(MANAGER_ROLE, msg.sender)) {
+            lockedValves[token] = true;
+        } else {
+            require(!lockedValves[token], "Valve is locked");
+        }
         emit ValveOpened(token);
     }
 
@@ -84,6 +90,11 @@ contract StremeStakingValve is AccessControl {
         require(stakedToken != address(0), "Staked token not found");
         uint128 units = stakingFactory.valveUnits(token);
         stakingFactory.updateMemberUnits(stakedToken, address(stakingFactory), units);
+        if (hasRole(MANAGER_ROLE, msg.sender)) {
+            lockedValves[token] = true;
+        } else {
+            require(!lockedValves[token], "Valve is locked");
+        }
         emit ValveClosed(token);
     }
 
