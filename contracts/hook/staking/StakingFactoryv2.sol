@@ -34,6 +34,8 @@ interface IStakedToken {
         uint256 _lockDuration,
         address _teamRecipient
     ) external;
+    function updateMemberUnits(address memberAddr, uint128 newUnits) external;
+    function tokensToUnits(uint256 amount) external view returns (uint128);
 }
 
 contract StakingFactoryV2 is AccessControl {
@@ -46,6 +48,7 @@ contract StakingFactoryV2 is AccessControl {
     int96 public flowDuration = 365 days;
     uint256 public lockDuration = 1 days;
     address public teamRecipient;
+    mapping(address => uint128) public valveUnits;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
     /**
@@ -93,6 +96,10 @@ contract StakingFactoryV2 is AccessControl {
         string memory symbol = string(abi.encodePacked("st", IERC20(stakeableToken).symbol()));
         IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, stakingLockDuration, teamRecipient);
 
+        // @dev 3.1 grant safety valve units to this contract, as if someone staked an equivalent amount
+        valveUnits[stakeableToken] = IStakedToken(stakedToken).tokensToUnits(supply);
+        IStakedToken(stakedToken).updateMemberUnits(address(this), valveUnits[stakeableToken]);
+
         // @dev 4. Transfer reward amount to this contract
         //uint256 allowance = IERC20(stakeableToken).allowance(msg.sender, address(this));
         //uint256 amount = allowance * percentageForRewards / 100;
@@ -104,6 +111,10 @@ contract StakingFactoryV2 is AccessControl {
         emit StakedTokenCreated(stakedToken, stakeableToken, pool);
 
         return stakedToken;
+    }
+
+    function updateMemberUnits(address stakedToken, address memberAddr, uint128 newUnits) external onlyRole(MANAGER_ROLE) {
+        IStakedToken(stakedToken).updateMemberUnits(memberAddr, newUnits);
     }
 
     function predictStakedTokenAddress(address stakeableToken) external view returns (address) {

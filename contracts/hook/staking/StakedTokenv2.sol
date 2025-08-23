@@ -69,6 +69,7 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
         __AccessControl_init();
         _grantRole(DEFAULT_ADMIN_ROLE, _defaultAdmin);
         _grantRole(MANAGER_ROLE, _defaultAdmin);
+        _grantRole(MANAGER_ROLE, msg.sender);
         stakeableToken = IERC20(_stakeableToken);
         pool = IDistributionPool(_pool);
         lockDuration = _lockDuration;
@@ -109,6 +110,10 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
             pool.updateMemberUnits(to, pool.getUnits(to) + units);
         }
         delegates[msg.sender] = to;
+    }
+
+    function tokensToUnits(uint256 amount) external view returns (uint128) {
+        return _units(amount);
     }
 
     function _units(uint256 amount) internal view returns (uint128) {
