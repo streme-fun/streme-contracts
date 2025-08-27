@@ -210,11 +210,20 @@ const {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
         const [signer] = await ethers.getSigners();
         const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
-        const poolConfig = {
+        var poolConfig = {
             "tick": -230400,
             "pairedToken": addr.pairedToken,
             "devBuyFee": 10000
         };
+        var useDegen = true;
+        if (useDegen) {
+            addr.pairedToken = process.env.DEGEN;
+            poolConfig = {
+              "tick": -164600,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
         const tokenConfig = {
             "_name": "Version 2",
             "_symbol": "V2",
@@ -497,7 +506,7 @@ const {
         const [signer] = await ethers.getSigners();
 
         const tokenA = addr.tokenAddress;
-        const tokenB = process.env.WETH;
+        const tokenB = addr.pairedToken;
         const fee = 10000;
         const abi = [ "function getPool(address tokenA, address tokenB, uint24 fee) external view returns (address pool)" ];
         const uniswapV3Factory = new ethers.Contract(addr.uniswapV3Factory, abi, signer);
