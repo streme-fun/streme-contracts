@@ -35,6 +35,7 @@ const {
         addr.gdaForwarder = process.env.GDA_FORWARDER;
         addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
         addr.uniswapV3Factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"; 
+        addr.protocolFactory = "0xe20B9a38E0c96F61d1bA6b42a61512D56Fea1Eb3"; // SuperTokenFactory on base chain
     } else {
         console.log("chain not supported");
         return;
@@ -113,7 +114,43 @@ const {
         expect(addr.postDeployFactory).to.not.be.undefined;
       }); // end it
 
+      it("should deploy SuperTokenFactoryV2", async function () {
+        // set timeout
+        this.timeout(60000);
+        const SuperTokenFactoryV2JSON = require("../artifacts/contracts/token/superfluid/SuperTokenFactoryV2.sol/SuperTokenFactoryV2.json");
+        const [signer] = await ethers.getSigners();
+        const SuperTokenFactory = await ethers.getContractFactory("SuperTokenFactoryV2", signer);
+        const superTokenFactory = await SuperTokenFactory.deploy(addr.protocolFactory);
+        console.log("SuperTokenFactoryV2 deployed to: ", superTokenFactory.target);
+        addr.tokenFactory = superTokenFactory.target;
+        expect(addr.tokenFactory).to.not.be.undefined;
+      }); // end it
+
       // permissions for the new contracts??
+
+      // grant DEPLOYER_ROLE on SuperTokenFactoryV2 to the Streme contract
+      it("should grant DEPLOYER_ROLE to Streme contract on SuperTokenFactoryV2", async function () {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        const SuperTokenFactoryV2JSON = require("../artifacts/contracts/token/superfluid/SuperTokenFactoryV2.sol/SuperTokenFactoryV2.json");
+        const superTokenFactory = new ethers.Contract(addr.tokenFactory, SuperTokenFactoryV2JSON.abi, signer);
+        const tx = await superTokenFactory.grantRole(superTokenFactory.DEPLOYER_ROLE(), addr.streme);
+        console.log("Granted DEPLOYER_ROLE to Streme contract on SuperTokenFactoryV2: ", tx.hash);
+        expect(tx).to.not.be.undefined;
+      }); // end it
+
+      // register SuperTokenFactoryV2 as token factory on Streme contract:
+      it("should register SuperTokenFactoryV2 on Streme contract", async function () {
+        // set timeout
+        this.timeout(60000);
+        const [first, signer] = await ethers.getSigners();
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const streme = new ethers.Contract(addr.streme, stremeJSON.abi, signer);
+        const tx = await streme.registerTokenFactory(addr.tokenFactory, true);
+        console.log("Registered SuperTokenFactoryV2 on Streme contract: ", tx.hash);
+        expect(tx).to.not.be.undefined;
+      }); // end it
 
       // grant DEPLOYER_ROLE on StremeAllocationHook to the Streme contract
       it("should grant DEPLOYER_ROLE to Streme contract", async function () {
