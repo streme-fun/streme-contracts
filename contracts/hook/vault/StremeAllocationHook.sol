@@ -101,6 +101,17 @@ contract StremeAllocationHook is AccessControl {
         return allocationConfigs[token];
     }
 
+    function totalAllocationPercentage(
+        address token
+    ) external view returns (uint256) {
+        AllocationConfig[] memory config = allocationConfigs[token];
+        uint256 totalPercentage = 0;
+        for (uint i = 0; i < config.length; i++) {
+            totalPercentage += config[i].percentage;
+        }
+        return totalPercentage;
+    }
+
     function hook(
         address token,
         address admin
