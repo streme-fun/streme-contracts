@@ -23,7 +23,7 @@ contract StremeAllocationHook is AccessControl {
     enum AllocationType {
         Vault,
         Staking,
-        LP
+        LP // Future Use
     }
 
     struct AllocationConfig {
