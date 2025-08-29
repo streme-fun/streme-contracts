@@ -70,13 +70,10 @@ contract StremeAllocationHook is AccessControl {
         if (allocationConfigs[token].length > 0) {
             revert AllocationAlreadyExists();
         }
+        uint256 totalPercentage = 0;
         for (uint i = 0; i < configs.length; i++) {
             // the total of percentage for each config must be <= 90 (90%)
-            uint256 totalPercentage = 0;
-            for (uint j = 0; j < configs.length; j++) {
-                totalPercentage += configs[j].percentage;
-            }
-            require(totalPercentage <= 90, "Total percentage must be <= 90");
+            totalPercentage += configs[i].percentage;
             // if type is vault, configs[i].admin must be unique for each vault config
             if (configs[i].allocationType == AllocationType.Vault) {
                 for (uint j = 0; j < i; j++) {
@@ -93,7 +90,8 @@ contract StremeAllocationHook is AccessControl {
                 configs[i].data
             );
         }
-    }    
+        require(totalPercentage <= 90, "Total percentage must be <= 90");
+    }
 
     function getAllocationConfig(
         address token
