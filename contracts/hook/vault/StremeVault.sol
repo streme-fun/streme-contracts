@@ -1,10 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/proxy/Clones.sol";
+
+interface IERC20 {
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    function approve(address spender, uint256 amount) external returns (bool);
+}
 
 interface IDistributionPool {
     function getUnits(address memberAddr) external view returns (uint128);
@@ -21,6 +27,15 @@ interface IGDAv1Forwarder {
     function getFlowDistributionFlowRate(address superTokenAddress, address from, address to) external view returns (int96);
 }
 
+interface ISuperTokenFactory {
+    function createERC20Wrapper(address underlyingToken, uint8 upgradability, string calldata name, string calldata symbol) external returns (address superToken);
+}
+
+interface ISuperToken {
+    function getHost() external view returns (address);
+    function upgrade(uint256 amount) external;
+}
+
 interface IStremeVaultBox {
     function initialize(IGDAv1Forwarder _gdaForwarder, address _pool, address _token) external;
     function distributeFlow(int96 requestedFlowRate) external returns (bool);
@@ -31,6 +46,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
     IGDAv1Forwarder public gdaForwarder;
+    ISuperTokenFactory public superTokenFactory;
     IGDAv1Forwarder.PoolConfig public config = IGDAv1Forwarder.PoolConfig(false, true);
     address public stremeVaultBoxImplementation;
 
@@ -77,12 +93,15 @@ contract StremeVault is ReentrancyGuard, AccessControl {
 
     event AllocationClaimed(address indexed token, uint256 amount, uint256 remainingAmount);
 
-    constructor(IGDAv1Forwarder _gdaForwarder, address _stremeVaultBoxImplementation) {
+    event WrappedSuperTokenCreated(address indexed inputToken, address indexed superToken);
+
+    constructor(IGDAv1Forwarder _gdaForwarder, address _stremeVaultBoxImplementation, ISuperTokenFactory _superTokenFactory) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         _grantRole(DEPLOYER_ROLE, msg.sender);
         gdaForwarder = _gdaForwarder;
-        stremeVaultBoxImplementation = _stremeVaultBoxImplementation;   
+        stremeVaultBoxImplementation = _stremeVaultBoxImplementation;
+        superTokenFactory = _superTokenFactory;
     }
 
     function receiveTokens(
@@ -103,7 +122,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         uint256 lockupDuration,
         uint256 vestingDuration
     ) external nonReentrant {
-        _createVault(token, admin, supply, lockupDuration, vestingDuration);
+        (address streamingToken, ) = _rewardSuperToken(token, supply);
+        _createVault(streamingToken, admin, supply, lockupDuration, vestingDuration);
     }
 
     function _createVault(
@@ -255,6 +275,30 @@ contract StremeVault is ReentrancyGuard, AccessControl {
     ) internal returns (address box) {
         box = Clones.clone(stremeVaultBoxImplementation);
         IStremeVaultBox(box).initialize(gdaForwarder, allocations[token][admin].pool, token);
+    }
+
+    function _rewardSuperToken(address inputToken, uint256 amount) internal returns (address rewardToken, bool isWrapped) {
+        // is the input token a super token? Only super tokens will have a getHost() function:
+        bool isSuperToken;
+        try ISuperToken(inputToken).getHost() returns (address) {
+            isSuperToken = true;
+            rewardToken = inputToken;
+        } catch {
+            // not a super token
+            isSuperToken = false;
+        }
+        if (!isSuperToken) {
+            // wrap it as a super token + upgrade supply
+            string memory name = string(abi.encodePacked("Super ", IERC20(inputToken).name()));
+            string memory symbol = string(abi.encodePacked(IERC20(inputToken).symbol(), "x"));
+            rewardToken = superTokenFactory.createERC20Wrapper(inputToken, 1, name, symbol);
+            isWrapped = true;
+            // approve the wrapper to spend the original token
+            IERC20(inputToken).approve(address(rewardToken), amount);
+            // upgrade the entire amount
+            ISuperToken(rewardToken).upgrade(amount);
+            emit WrappedSuperTokenCreated(inputToken, rewardToken);
+        }
     }
 
     function allocation(address token, address admin) external view
