@@ -36,6 +36,7 @@ const {
         addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
         addr.uniswapV3Factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"; 
         addr.protocolFactory = "0xe20B9a38E0c96F61d1bA6b42a61512D56Fea1Eb3"; // SuperTokenFactory on base chain
+        addr.protocolSuperTokenFactory = process.env.SUPER_TOKEN_FACTORY;
     } else {
         console.log("chain not supported");
         return;
@@ -96,7 +97,7 @@ const {
         const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
         const [signer] = await ethers.getSigners();
         const StakingFactory = await ethers.getContractFactory("StakingFactoryV2", signer);
-        const factory = await StakingFactory.deploy(addr.gdaForwarder, addr.stakedTokenImplementation, addr.teamRecipient);
+        const factory = await StakingFactory.deploy(addr.gdaForwarder, addr.stakedTokenImplementation, addr.teamRecipient, addr.protocolSuperTokenFactory);
         console.log("StakingFactory deployed to: ", factory.target);
         addr.stakingFactory = factory.target;
         expect(addr.stakingFactory).to.not.be.undefined;
