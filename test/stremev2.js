@@ -553,6 +553,58 @@ const {
         expect(allocation.amountTotal).to.equal(allocationAmount);
       });
 
+      it("should enable george to create staking for a non streme coin", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const nonStremeToken = process.env.NON_STREME_TOKEN;
+        const stakingAmount = ethers.parseUnits("420", 18); // using ethers v6
+        const lockDuration = 30 * 24 * 60 * 60; // 30 days
+        const flowDuration = 365 * 24 * 60 * 60; // 1 year
+
+        // george approves the staking contract
+        const token = new ethers.Contract(nonStremeToken, [
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        await token.approve(addr.stakingFactory, stakingAmount);
+
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(nonStremeToken);
+
+        const stakedToken = await stakingFactoryV2.createStakedToken(
+          nonStremeToken,
+          stakingAmount,
+          lockDuration,
+          flowDuration
+        );
+
+        //console.log("George's staking created: ", stakedToken);
+        expect(stakedToken).to.not.be.null;
+      });
+
+      it("should enable george to stake 100 non-streme coins", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        // staked token v2 JSON:
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        // george stakes 100 non-streme coins
+        const stakeAmount = ethers.parseUnits("100", 18);
+        // george first approves staking contract to spend:
+        const nonStremeToken = process.env.NON_STREME_TOKEN;
+        // george approves the staking contract
+        const token = new ethers.Contract(nonStremeToken, [
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        await token.approve(addr.stakedTokenAddress, stakeAmount);
+        await stakedToken.stake(george.address, stakeAmount);
+        expect(await stakedToken.balanceOf(george.address)).to.be.greaterThan(0);
+      });
+
     }); // end describe
 
     

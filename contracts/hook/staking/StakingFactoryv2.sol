@@ -92,13 +92,12 @@ contract StakingFactoryV2 is AccessControl {
 
     function createStakedToken(
         address stakeableToken,
-        address admin,
         uint256 supply,
         uint256 stakingLockDuration,
         int96 stakingFlowDuration
     ) external returns (address stakedToken) {
         // TODO: enforce minimum supply for self-serve staking?
-        stakedToken = _createStakedToken(stakeableToken, admin, supply, stakingLockDuration, stakingFlowDuration);
+        stakedToken = _createStakedToken(stakeableToken, teamRecipient, supply, stakingLockDuration, stakingFlowDuration);
     }
 
     function _createStakedToken(
@@ -170,7 +169,7 @@ contract StakingFactoryV2 is AccessControl {
             isSuperToken = false;
         }
         if (!isSuperToken) {
-            // TODO: wrap it as a super token + upgrade supply
+            // wrap it as a super token + upgrade supply
             string memory name = string(abi.encodePacked("Super ", IERC20(inputToken).name()));
             string memory symbol = string(abi.encodePacked(IERC20(inputToken).symbol(), "x"));
             rewardToken = superTokenFactory.createERC20Wrapper(inputToken, 1, name, symbol);

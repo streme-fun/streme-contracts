@@ -27,7 +27,7 @@ module.exports = {
       forking: {
         url: process.env.API_URL_BASE,
         ignoreUnknownTxType: true,
-        blockNumber: 34585992        // assumes Base fork
+        blockNumber: 35104584        // assumes Base fork
       },
     },
     baseSepolia: {
