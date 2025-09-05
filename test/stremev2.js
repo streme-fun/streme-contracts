@@ -73,7 +73,7 @@ const {
         const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
         const [signer] = await ethers.getSigners();
         const Vault = await ethers.getContractFactory("StremeVault", signer);
-        const vault = await Vault.deploy(addr.gdaForwarder, addr.stremeVaultBoxImplementation);
+        const vault = await Vault.deploy(addr.gdaForwarder, addr.stremeVaultBoxImplementation, addr.protocolSuperTokenFactory);
         console.log("Vault deployed to: ", vault.target);
         addr.stremeVault = vault.target;
         expect(addr.stremeVault).to.not.be.undefined;
@@ -536,6 +536,7 @@ const {
           "function approve(address spender, uint256 amount) external returns (bool)"
         ], george);
         const balance = await token.balanceOf(george.address);
+        console.log("George's balance: ", balance.toString());
         const allocationAmount = balance;
         // george approves Vault for allocationAmount
         await token.approve(addr.stremeVault, allocationAmount);
@@ -549,6 +550,42 @@ const {
         );
         // get allocation details
         const allocation = await stremeVault.allocations(addr.tokenAddress, beneficiary);
+        console.log("Newman's allocation: ", allocation);
+        expect(allocation.amountTotal).to.equal(allocationAmount);
+      });
+
+      it("should enable george to create a WRAPPER vault allocation from his balance", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, george);
+        // george creates a vault allocation with 10% of his balance, 7 day cliff, no vesting
+        const token = new ethers.Contract(process.env.NON_STREME_TOKEN, [
+          "function balanceOf(address owner) view returns (uint256)",
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        const allocationAmount = ethers.parseUnits("69", 18); // using ethers v6
+        // george approves Vault for allocationAmount
+        await token.approve(addr.stremeVault, allocationAmount);
+        const beneficiary = process.env.NEWMAN;
+        const tx = await stremeVault.createVault(
+          process.env.NON_STREME_TOKEN,
+          beneficiary,
+          allocationAmount,
+          7 * 24 * 60 * 60, // 7 days
+          180 * 24 * 60 * 60 // no vesting
+        );
+        await tx.wait();
+        console.log("createVault tx mined");
+        // From the WrappedSuperTokenCreated event we can get the rewardToken address:
+        const filter = stremeVault.filters.WrappedSuperTokenCreated(process.env.NON_STREME_TOKEN, null);
+        const events = await stremeVault.queryFilter(filter);
+        console.log("WrappedSuperTokenCreated events: ", events);
+        const rewardToken = events[0].args.superToken;
+
+        // get allocation details
+        const allocation = await stremeVault.allocations(rewardToken, beneficiary);
         console.log("Newman's allocation: ", allocation);
         expect(allocation.amountTotal).to.equal(allocationAmount);
       });

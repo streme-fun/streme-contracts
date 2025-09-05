@@ -8,6 +8,7 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 interface IERC20 {
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
+    function transfer(address recipient, uint256 amount) external returns (bool);
     function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
     function approve(address spender, uint256 amount) external returns (bool);
 }
@@ -66,16 +67,17 @@ contract StremeVault is ReentrancyGuard, AccessControl {
     // mapping token => admin => allocation:
     mapping(address => mapping(address => Allocation)) public allocations;
 
+    // TODO: find solution for minimum lockup duration
     uint256 public constant MIN_LOCKUP_DURATION = 7 days;
 
-    error Unauthorized();
-    error NoBalanceToClaim();
-    error AllocationNotUnlocked();
-    error InvalidVaultBps();
-    error InvalidVaultAdmin();
-    error AllocationAlreadyExists();
-    error TransferFailed();
-    error VaultLockupDurationTooShort();
+    error Unauthorized(); // 0x82b42900
+    error NoBalanceToClaim(); // 0xa39f474a
+    error AllocationNotUnlocked(); // 0xcc57c490
+    error InvalidVaultBps(); // 0x1426b247
+    error InvalidVaultAdmin(); // 0x3b7dc713
+    error AllocationAlreadyExists(); // 0x89ac0f21
+    error TransferFailed(); // 0x90b8ec18
+    error VaultLockupDurationTooShort(); // 0x0c68b114
 
     event AllocationCreated(
         address indexed token,
@@ -111,7 +113,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         bytes calldata data
     ) external nonReentrant onlyRole(DEPLOYER_ROLE) {
         (uint256 lockupDuration, uint256 vestingDuration) = abi.decode(data, (uint256, uint256));
-        _createVault(token, admin, supply, lockupDuration, vestingDuration);
+        _createVault(token, admin, supply, lockupDuration, vestingDuration, false);
     }
 
     // function to create vault after token has already been deployed:
@@ -122,8 +124,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         uint256 lockupDuration,
         uint256 vestingDuration
     ) external nonReentrant {
-        (address streamingToken, ) = _rewardSuperToken(token, supply);
-        _createVault(streamingToken, admin, supply, lockupDuration, vestingDuration);
+        (address streamingToken, bool isWrapped) = _rewardSuperToken(token, supply);
+        _createVault(streamingToken, admin, supply, lockupDuration, vestingDuration, isWrapped);
     }
 
     function _createVault(
@@ -131,7 +133,8 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         address admin,
         uint256 supply,
         uint256 lockupDuration,
-        uint256 vestingDuration
+        uint256 vestingDuration,
+        bool isWrapped
     ) internal {
         uint256 lockupEndTime = block.timestamp + lockupDuration;
 
@@ -161,9 +164,16 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         // create a new box for the allocation
         allocations[token][admin].box = _createBox(token, admin);
 
-        // pull in token
-        if (!IERC20(token).transferFrom(msg.sender, allocations[token][admin].box, supply)) {
-            revert TransferFailed();
+        // transfer the tokens to the box
+        if (isWrapped) {
+            // if wrapped super token, the token has already been transferred in _rewardSuperToken
+            if (!IERC20(token).transfer(allocations[token][admin].box, supply)) {
+                revert TransferFailed();
+            }
+        } else {
+            if (!IERC20(token).transferFrom(msg.sender, allocations[token][admin].box, supply)) {
+                revert TransferFailed();
+            }
         }
 
         emit AllocationCreated({
@@ -293,6 +303,10 @@ contract StremeVault is ReentrancyGuard, AccessControl {
             string memory symbol = string(abi.encodePacked(IERC20(inputToken).symbol(), "x"));
             rewardToken = superTokenFactory.createERC20Wrapper(inputToken, 1, name, symbol);
             isWrapped = true;
+            // transfer the tokens to this contract
+            if (!IERC20(inputToken).transferFrom(msg.sender, address(this), amount)) {
+                revert TransferFailed();
+            }
             // approve the wrapper to spend the original token
             IERC20(inputToken).approve(address(rewardToken), amount);
             // upgrade the entire amount
