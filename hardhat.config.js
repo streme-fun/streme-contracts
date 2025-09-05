@@ -29,6 +29,10 @@ module.exports = {
         ignoreUnknownTxType: true,
         blockNumber: 35104584        // assumes Base fork
       },
+      gasMultiplier: 2,
+      initialBaseFeePerGas: 0, //14689933,
+      maxFeePerGas: 10000000000 * 100,
+      maxPriorityFeePerGas: 10000000000 * 2
     },
     baseSepolia: {
       url: API_URL_BASESEPOLIA,
