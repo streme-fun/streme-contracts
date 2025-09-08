@@ -67,8 +67,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
     // mapping token => admin => allocation:
     mapping(address => mapping(address => Allocation)) public allocations;
 
-    // TODO: find solution for minimum lockup duration
-    uint256 public constant MIN_LOCKUP_DURATION = 7 days;
+    uint256 public minLockupDuration = 7 days;
 
     error Unauthorized(); // 0x82b42900
     error NoBalanceToClaim(); // 0xa39f474a
@@ -139,7 +138,7 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         uint256 lockupEndTime = block.timestamp + lockupDuration;
 
         // check that minimum lockup duration is met
-        if (lockupDuration < MIN_LOCKUP_DURATION) {
+        if (lockupDuration < minLockupDuration) {
             revert VaultLockupDurationTooShort();
         }
 
@@ -378,4 +377,12 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         require(allocations[token][admin].pool != address(0), "StremeVault: Pool does not exist");
         return IDistributionPool(allocations[token][admin].pool).getUnits(member);
     }
+
+    function setMinLockupDuration(uint256 duration) external onlyRole(MANAGER_ROLE) {
+        if (duration == 0) {
+            revert VaultLockupDurationTooShort();
+        }
+        minLockupDuration = duration;
+    }
+    
 }
