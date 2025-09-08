@@ -36,6 +36,7 @@ const {
         addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
         addr.uniswapV3Factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"; 
         addr.protocolFactory = "0xe20B9a38E0c96F61d1bA6b42a61512D56Fea1Eb3"; // SuperTokenFactory on base chain
+        addr.protocolSuperTokenFactory = process.env.SUPER_TOKEN_FACTORY;
     } else {
         console.log("chain not supported");
         return;
@@ -72,7 +73,7 @@ const {
         const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
         const [signer] = await ethers.getSigners();
         const Vault = await ethers.getContractFactory("StremeVault", signer);
-        const vault = await Vault.deploy(addr.gdaForwarder, addr.stremeVaultBoxImplementation);
+        const vault = await Vault.deploy(addr.gdaForwarder, addr.stremeVaultBoxImplementation, addr.protocolSuperTokenFactory);
         console.log("Vault deployed to: ", vault.target);
         addr.stremeVault = vault.target;
         expect(addr.stremeVault).to.not.be.undefined;
@@ -96,7 +97,7 @@ const {
         const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
         const [signer] = await ethers.getSigners();
         const StakingFactory = await ethers.getContractFactory("StakingFactoryV2", signer);
-        const factory = await StakingFactory.deploy(addr.gdaForwarder, addr.stakedTokenImplementation, addr.teamRecipient);
+        const factory = await StakingFactory.deploy(addr.gdaForwarder, addr.stakedTokenImplementation, addr.teamRecipient, addr.protocolSuperTokenFactory);
         console.log("StakingFactory deployed to: ", factory.target);
         addr.stakingFactory = factory.target;
         expect(addr.stakingFactory).to.not.be.undefined;
@@ -535,6 +536,7 @@ const {
           "function approve(address spender, uint256 amount) external returns (bool)"
         ], george);
         const balance = await token.balanceOf(george.address);
+        console.log("George's balance: ", balance.toString());
         const allocationAmount = balance;
         // george approves Vault for allocationAmount
         await token.approve(addr.stremeVault, allocationAmount);
@@ -550,6 +552,94 @@ const {
         const allocation = await stremeVault.allocations(addr.tokenAddress, beneficiary);
         console.log("Newman's allocation: ", allocation);
         expect(allocation.amountTotal).to.equal(allocationAmount);
+      });
+
+      it("should enable george to create a WRAPPER vault allocation from his balance", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, george);
+        // george creates a vault allocation with 10% of his balance, 7 day cliff, no vesting
+        const token = new ethers.Contract(process.env.NON_STREME_TOKEN, [
+          "function balanceOf(address owner) view returns (uint256)",
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        const allocationAmount = ethers.parseUnits("69", 18); // using ethers v6
+        // george approves Vault for allocationAmount
+        await token.approve(addr.stremeVault, allocationAmount);
+        const beneficiary = process.env.NEWMAN;
+        const tx = await stremeVault.createVault(
+          process.env.NON_STREME_TOKEN,
+          beneficiary,
+          allocationAmount,
+          7 * 24 * 60 * 60, // 7 days
+          180 * 24 * 60 * 60 // no vesting
+        );
+        await tx.wait();
+        console.log("createVault tx mined");
+        // From the WrappedSuperTokenCreated event we can get the rewardToken address:
+        const filter = stremeVault.filters.WrappedSuperTokenCreated(process.env.NON_STREME_TOKEN, null);
+        const events = await stremeVault.queryFilter(filter);
+        console.log("WrappedSuperTokenCreated events: ", events);
+        const rewardToken = events[0].args.superToken;
+
+        // get allocation details
+        const allocation = await stremeVault.allocations(rewardToken, beneficiary);
+        console.log("Newman's allocation: ", allocation);
+        expect(allocation.amountTotal).to.equal(allocationAmount);
+      });
+
+      it("should enable george to create staking for a non streme coin", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const nonStremeToken = process.env.NON_STREME_TOKEN;
+        const stakingAmount = ethers.parseUnits("420", 18); // using ethers v6
+        const lockDuration = 30 * 24 * 60 * 60; // 30 days
+        const flowDuration = 365 * 24 * 60 * 60; // 1 year
+
+        // george approves the staking contract
+        const token = new ethers.Contract(nonStremeToken, [
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        await token.approve(addr.stakingFactory, stakingAmount);
+
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(nonStremeToken);
+
+        const stakedToken = await stakingFactoryV2.createStakedToken(
+          nonStremeToken,
+          stakingAmount,
+          lockDuration,
+          flowDuration
+        );
+
+        //console.log("George's staking created: ", stakedToken);
+        expect(stakedToken).to.not.be.null;
+      });
+
+      it("should enable george to stake 100 non-streme coins", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        // staked token v2 JSON:
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        // george stakes 100 non-streme coins
+        const stakeAmount = ethers.parseUnits("100", 18);
+        // george first approves staking contract to spend:
+        const nonStremeToken = process.env.NON_STREME_TOKEN;
+        // george approves the staking contract
+        const token = new ethers.Contract(nonStremeToken, [
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        await token.approve(addr.stakedTokenAddress, stakeAmount);
+        await stakedToken.stake(george.address, stakeAmount);
+        expect(await stakedToken.balanceOf(george.address)).to.be.greaterThan(0);
       });
 
     }); // end describe
