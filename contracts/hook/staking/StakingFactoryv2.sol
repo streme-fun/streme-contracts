@@ -62,7 +62,7 @@ contract StakingFactoryV2 is AccessControl {
     mapping(address => uint128) public valveUnits;
     uint256 public percentageToValve = 100;
 
-    event StakedTokenCreated(address stakeToken, address depositToken, address pool, uint256 supply, uint256 lockDuration, int96 flowDuration);
+    event StakedTokenCreated(address stakeToken, address indexed depositToken, address pool, uint256 supply, uint256 lockDuration, int96 flowDuration);
     /**
      *  @dev The lock duration has been updated
      */
