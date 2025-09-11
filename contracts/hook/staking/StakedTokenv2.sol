@@ -19,6 +19,7 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
     IDistributionPool public pool;
     uint256 public unitDecimals;
     mapping(address => address) public delegates;
+    address public stakingFactory;
 
     /**
      * @dev Lock duration in seconds, period starts after the deposit timestamp
@@ -74,6 +75,7 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
         pool = IDistributionPool(_pool);
         lockDuration = _lockDuration;
         unitDecimals = 18;
+        stakingFactory = msg.sender;
         // @dev make sure there is always at least one unit
         pool.updateMemberUnits(_teamRecipient, 1);
     }
