@@ -62,7 +62,7 @@ contract StakingFactoryV2 is AccessControl {
     mapping(address => uint128) public valveUnits;
     uint256 public percentageToValve = 100;
 
-    event StakedTokenCreated(address stakeToken, address depositToken, address pool);
+    event StakedTokenCreated(address stakeToken, address depositToken, address pool, uint256 supply, uint256 lockDuration, int96 flowDuration);
     /**
      *  @dev The lock duration has been updated
      */
@@ -149,7 +149,7 @@ contract StakingFactoryV2 is AccessControl {
         // @dev 5. Distribute the reward flow
         int96 flowRate = int96(uint96(supply)) / stakingFlowDuration;
         gda.distributeFlow(rewardToken, address(this), pool, flowRate, "");
-        emit StakedTokenCreated(stakedToken, stakeableToken, pool);
+        emit StakedTokenCreated(stakedToken, stakeableToken, pool, supply, lockDuration, flowDuration);
 
         return stakedToken;
     }
