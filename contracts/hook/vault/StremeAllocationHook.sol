@@ -14,6 +14,10 @@ interface IStremeAllocator {
     ) external;
 }
 
+interface ISuperToken {
+    function getHost() external view returns (address);
+}
+
 contract StremeAllocationHook is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
@@ -68,9 +72,9 @@ contract StremeAllocationHook is AccessControl {
         AllocationConfig[] memory configs
     ) external onlyRole(DEPLOYER_ROLE) {
         // revert if the token has been deployed already:
-        try IERC20(token).totalSupply() {
+        if (token.code.length > 0) {
             revert TokenAlreadyDeployed();
-        } catch {}
+        }
 
         // Check if the allocation config already exists
         if (allocationConfigs[token].length > 0) {
