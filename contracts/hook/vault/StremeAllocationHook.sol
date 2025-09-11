@@ -36,6 +36,7 @@ contract StremeAllocationHook is AccessControl {
     // mapping of token address to allocation config array
     mapping (address => AllocationConfig[]) public allocationConfigs;
 
+    error TokenAlreadyDeployed();
     error AllocationAlreadyExists();
     error TransferFailed();
     error NotImplemented();
@@ -66,6 +67,11 @@ contract StremeAllocationHook is AccessControl {
         address token,
         AllocationConfig[] memory configs
     ) external onlyRole(DEPLOYER_ROLE) {
+        // revert if the token has been deployed already:
+        try IERC20(token).totalSupply() {
+            revert TokenAlreadyDeployed();
+        } catch {}
+
         // Check if the allocation config already exists
         if (allocationConfigs[token].length > 0) {
             revert AllocationAlreadyExists();
