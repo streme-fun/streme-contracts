@@ -150,6 +150,23 @@ contract StremeAllocationHook is AccessControl {
         return token;
     }
 
+    function setDefaultConfig(AllocationConfig[] memory configs) external onlyRole(MANAGER_ROLE) {
+        // reset the default config
+        delete defaultConfig;
+        uint256 totalPercentage = 0;
+        for (uint i = 0; i < configs.length; i++) {
+            totalPercentage += configs[i].percentage;
+            defaultConfig.push(configs[i]);
+            emit AllocationConfigCreated(
+                configs[i].allocationType,
+                configs[i].admin,
+                configs[i].percentage,
+                configs[i].data
+            );
+        }
+        require(totalPercentage <= 90, "Total percentage must be <= 90");
+    }
+
     function setVault(IStremeAllocator _vault) external onlyRole(MANAGER_ROLE) {
         vault = _vault;
     }
