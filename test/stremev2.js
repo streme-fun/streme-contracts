@@ -642,9 +642,366 @@ const {
         expect(await stakedToken.balanceOf(george.address)).to.be.greaterThan(0);
       });
 
-    }); // end describe
+      it("should deploy a token with 2 vaults + staking", async function () {
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
+        var poolConfig = {
+            "tick": -230400,
+            "pairedToken": addr.pairedToken,
+            "devBuyFee": 10000
+        };
+        var useDegen = false;
+        if (useDegen) {
+            addr.pairedToken = process.env.DEGEN;
+            poolConfig = {
+              "tick": -164600,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
+        const tokenConfig = {
+            "_name": "Bee Token",
+            "_symbol": "BEE",
+            "_supply": ethers.parseEther("100000000000"), // 100 billion
+            "_fee": 10000,
+            "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "_deployer": process.env.STREME_ADMIN,
+            "_fid": 8685,
+            "_image": "none",
+            "_castHash": "none",
+            "_poolConfig": poolConfig
+        };
+        var salt, tokenAddress;
 
-    
+        await ethers.provider.send("evm_mine");
+
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        salt = result[0];
+        tokenAddress = result[1];
+        console.log("Salt: ", salt);
+        console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
+        tokenConfig["_salt"] = salt;
+
+        // create allocations
+
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
+
+        // 3 allocations, 2 for vault, 1 for staking
+        allocations = [
+            {
+                allocationType: 0, // Vault
+                admin: process.env.TEAM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [30*days, 365*days] // 30 day cliff, 365 day vesting
+                )
+            },
+            {
+                allocationType: 0, // Vault
+                admin: process.env.COMM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [1, 0] // no lock, no vesting ... needs special approval (for now at least)
+                )
+            },
+            {
+                allocationType: 1, // Staking
+                admin: ethers.ZeroAddress, // zero address for Staking allocations
+                percentage: 5, // 5%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "int96"],
+                    [1*days, 365*days] // 1 day lockup, 365 days for staking rewards stream
+                )
+            }
+        ];
+        // now createAllocationConfig on StremeAllocationHook
+        const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
+        const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
+
+        const tx = await stremeAllocationHook.createAllocationConfig(
+            tokenAddress,
+            allocations
+        );
+        console.log("createAllocationConfig tx: ", tx.hash);
+        await tx.wait();
+        console.log("createAllocationConfig tx mined");
+
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+
+        // temporarily change the minLockupDuration on the StremeVault to 1
+        await (await stremeVault.setMinLockupDuration(1)).wait();
+
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
+        console.log("Token Address: ", tokenAddress);
+
+        // set back the minLockupDuration on the StremeVault to 7 days
+        await (await stremeVault.setMinLockupDuration(7*days)).wait();
+
+        expect(tokenAddress).to.not.be.empty;
+      }); // end it
+
+      it("should deploy a token with no allocations", async function () {
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
+        var poolConfig = {
+            "tick": -230400,
+            "pairedToken": addr.pairedToken,
+            "devBuyFee": 10000
+        };
+        var useDegen = false;
+        if (useDegen) {
+            addr.pairedToken = process.env.DEGEN;
+            poolConfig = {
+              "tick": -164600,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
+        const tokenConfig = {
+            "_name": "No allocations",
+            "_symbol": "NONE",
+            "_supply": ethers.parseEther("100000000000"), // 100 billion
+            "_fee": 10000,
+            "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "_deployer": process.env.STREME_ADMIN,
+            "_fid": 8685,
+            "_image": "none",
+            "_castHash": "none",
+            "_poolConfig": poolConfig
+        };
+        var salt, tokenAddress;
+
+        await ethers.provider.send("evm_mine");
+
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        salt = result[0];
+        tokenAddress = result[1];
+        console.log("Salt: ", salt);
+        console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
+        tokenConfig["_salt"] = salt;
+
+        // create allocations
+
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
+
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
+        console.log("Token Address: ", tokenAddress);
+
+        expect(tokenAddress).to.not.be.empty;
+      }); // end it
+
+      it("should deploy a token with 3 vaults + NO staking", async function () {
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
+        var poolConfig = {
+            "tick": -230400,
+            "pairedToken": addr.pairedToken,
+            "devBuyFee": 10000
+        };
+        var useDegen = false;
+        if (useDegen) {
+            addr.pairedToken = process.env.DEGEN;
+            poolConfig = {
+              "tick": -164600,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
+        const tokenConfig = {
+            "_name": "Three vaults No Staking",
+            "_symbol": "3V0S",
+            "_supply": ethers.parseEther("100000000000"), // 100 billion
+            "_fee": 10000,
+            "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "_deployer": process.env.STREME_ADMIN,
+            "_fid": 8685,
+            "_image": "none",
+            "_castHash": "none",
+            "_poolConfig": poolConfig
+        };
+        var salt, tokenAddress;
+
+        await ethers.provider.send("evm_mine");
+
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        salt = result[0];
+        tokenAddress = result[1];
+        console.log("Salt: ", salt);
+        console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
+        tokenConfig["_salt"] = salt;
+
+        // create allocations
+
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
+
+        // 3 allocations, 2 for vault, 1 for staking
+        allocations = [
+            {
+                allocationType: 0, // Vault
+                admin: process.env.TEAM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [30*days, 365*days] // 30 day cliff, 365 day vesting
+                )
+            },
+            {
+                allocationType: 0, // Vault
+                admin: process.env.COMM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [1, 0] // no lock, no vesting ... needs special approval (for now at least)
+                )
+            },
+            {
+                allocationType: 0, // Vault
+                admin: process.env.KRAMER, // beneficiary address
+                percentage: 50, // 50%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "int96"],
+                    [1, 365*days] // 1 second lock, 365 days for staking rewards stream
+                )
+            }
+        ];
+        // now createAllocationConfig on StremeAllocationHook
+        const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
+        const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
+
+        const tx = await stremeAllocationHook.createAllocationConfig(
+            tokenAddress,
+            allocations
+        );
+        console.log("createAllocationConfig tx: ", tx.hash);
+        await tx.wait();
+        console.log("createAllocationConfig tx mined");
+
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+
+        // temporarily change the minLockupDuration on the StremeVault to 1
+        await (await stremeVault.setMinLockupDuration(1)).wait();
+
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
+        console.log("Token Address: ", tokenAddress);
+
+        // set back the minLockupDuration on the StremeVault to 7 days
+        await (await stremeVault.setMinLockupDuration(7*days)).wait();
+
+        expect(tokenAddress).to.not.be.empty;
+      }); // end it
+
+      it("should deploy token with ETHx pairing", async function () {
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
+        var poolConfig = {
+            "tick": -230400,
+            "pairedToken": addr.pairedToken,
+            "devBuyFee": 10000
+        };
+        var useEthX = true;
+        if (useEthX) {
+            addr.pairedToken = process.env.ETHX;
+            poolConfig = {
+              "tick": -230400,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
+        const tokenConfig = {
+            "_name": "ETHx Paired Token",
+            "_symbol": "ETHxP",
+            "_supply": ethers.parseEther("100000000000"), // 100 billion
+            "_fee": 10000,
+            "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "_deployer": process.env.STREME_ADMIN,
+            "_fid": 8685,
+            "_image": "none",
+            "_castHash": "none",
+            "_poolConfig": poolConfig
+        };
+        var salt, tokenAddress;
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        salt = result[0];
+        tokenAddress = result[1];
+        console.log("Salt: ", salt);
+        console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
+        tokenConfig["_salt"] = salt;
+
+        // create allocations
+
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
+
+        // 3 allocations, 2 for vault, 1 for staking
+        allocations = [
+            {
+                allocationType: 0, // Vault
+                admin: process.env.STREME_ADMIN, // beneficiary address
+                percentage: 10, // 10%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [30*days, 180*days] // 30 day cliff, 180 day vesting
+                )
+            },
+            {
+                allocationType: 0, // Vault
+                admin: process.env.KRAMER, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [7*days, 0] // 7 day cliff, no vesting
+                )
+            },
+            {
+                allocationType: 1, // Staking
+                admin: ethers.ZeroAddress, // zero address for Staking allocations
+                percentage: 30, // 30%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "int96"],
+                    [30*days, 30*days] // 30 day lockup, 30 days for staking rewards stream
+                )
+            }
+        ];
+        // now createAllocationConfig on StremeAllocationHook
+        const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
+        const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
+
+        const tx = await stremeAllocationHook.createAllocationConfig(
+            tokenAddress,
+            allocations
+        );
+        console.log("createAllocationConfig tx: ", tx.hash);
+        await tx.wait();
+        console.log("createAllocationConfig tx mined");
+        
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
+        console.log("Token Address: ", tokenAddress);
+
+        expect(tokenAddress).to.not.be.empty;
+      }); // end it
+
+
+
+    }); // end describe    
   
   }); // end describe 
   
