@@ -55,7 +55,7 @@ contract StremeAllocationHook is AccessControl {
     // the default allocation config, used if no specific config is provided
     // this is a 20% allocation to staking, no vault allocation
     AllocationConfig[] defaultConfig = [
-        AllocationConfig(AllocationType.Staking, address(0), 20, "")
+        AllocationConfig(AllocationType.Staking, address(0), 20, abi.encode(uint256(60*60*24), int96(60*60*24*365))) // 20% to staking, admin is set to address(0) to indicate default
     ];
 
     
