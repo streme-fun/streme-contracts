@@ -764,18 +764,18 @@ const {
         await tx.wait();
         console.log("createAllocationConfig tx mined");
 
-        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
-        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        //const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        //const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
 
         // temporarily change the minLockupDuration on the StremeVault to 1
-        await (await stremeVault.setMinLockupDuration(1)).wait();
+        //await (await stremeVault.setMinLockupDuration(1)).wait();
 
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
         await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
         console.log("Token Address: ", tokenAddress);
 
         // set back the minLockupDuration on the StremeVault to 7 days
-        await (await stremeVault.setMinLockupDuration(7*days)).wait();
+        //await (await stremeVault.setMinLockupDuration(7*days)).wait();
 
         expect(tokenAddress).to.not.be.empty;
       }); // end it
@@ -993,18 +993,18 @@ const {
         await tx.wait();
         console.log("createAllocationConfig tx mined");
 
-        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
-        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        //const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        //const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
 
         // temporarily change the minLockupDuration on the StremeVault to 1
-        await (await stremeVault.setMinLockupDuration(1)).wait();
+        //await (await stremeVault.setMinLockupDuration(1)).wait();
 
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
         await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
         console.log("Token Address: ", tokenAddress);
 
         // set back the minLockupDuration on the StremeVault to 7 days
-        await (await stremeVault.setMinLockupDuration(7*days)).wait();
+        //await (await stremeVault.setMinLockupDuration(7*days)).wait();
 
         expect(tokenAddress).to.not.be.empty;
       }); // end it
@@ -1350,18 +1350,18 @@ const {
         //await tx.wait();
         //console.log("createAllocationConfig tx mined");
 
-        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
-        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        //const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        //const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
 
         // temporarily change the minLockupDuration on the StremeVault to 1
-        await (await stremeVault.setMinLockupDuration(1)).wait();
+        //await (await stremeVault.setMinLockupDuration(1)).wait();
 
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
         await (await stremeDeployV2.deployWithAllocations(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig, allocations)).wait();
         console.log("Token Address: ", tokenAddress);
 
         // set back the minLockupDuration on the StremeVault to 7 days
-        await (await stremeVault.setMinLockupDuration(7*days)).wait();
+        //await (await stremeVault.setMinLockupDuration(7*days)).wait();
 
         expect(tokenAddress).to.not.be.empty;
       }); // end it
