@@ -112,7 +112,20 @@ const {
         const stremeAllocationHook = await StremeAllocationHook.deploy(addr.stremeVault, addr.stakingFactory);
         console.log("StremeAllocationHook deployed to: ", stremeAllocationHook.target);
         addr.postDeployFactory = stremeAllocationHook.target;
+        addr.stremeAllocationHook = stremeAllocationHook.target;
         expect(addr.postDeployFactory).to.not.be.undefined;
+      }); // end it
+
+      it("should deploy StremeDeployV2", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeDeployV2JSON = require("../artifacts/contracts/extras/StremeDeployV2.sol/StremeDeployV2.json");
+        const [signer] = await ethers.getSigners();
+        const StremeDeployV2 = await ethers.getContractFactory("StremeDeployV2", signer);
+        const stremeDeployV2 = await StremeDeployV2.deploy(addr.streme, addr.stremeAllocationHook);
+        console.log("StremeDeployV2 deployed to: ", stremeDeployV2.target);
+        addr.stremeDeployV2 = stremeDeployV2.target;
+        expect(addr.stremeDeployV2).to.not.be.undefined;
       }); // end it
 
       it("should deploy SuperTokenFactoryV2", async function () {
@@ -127,7 +140,27 @@ const {
         expect(addr.tokenFactory).to.not.be.undefined;
       }); // end it
 
-      // permissions for the new contracts??
+      it("should grant DEPLOYER_ROLE to StremeDeployV2 on Streme contract", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [first, signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(addr.streme, stremeJSON.abi, signer);
+        const tx = await streme.grantRole(streme.DEPLOYER_ROLE(), addr.stremeDeployV2);
+        console.log("Granted DEPLOYER_ROLE to StremeDeployV2 on Streme contract: ", tx.hash);
+        expect(tx).to.not.be.undefined;
+      }); // end it
+
+      it("should grant DEPLOYER_ROLE to StremeDeployV2 on StremeAllocationHook contract", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
+        const [signer] = await ethers.getSigners();
+        const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
+        const tx = await stremeAllocationHook.grantRole(stremeAllocationHook.DEPLOYER_ROLE(), addr.stremeDeployV2);
+        console.log("Granted DEPLOYER_ROLE to StremeDeployV2 on StremeAllocationHook contract: ", tx.hash);
+        expect(tx).to.not.be.undefined;
+      }); // end it
 
       // grant DEPLOYER_ROLE on SuperTokenFactoryV2 to the Streme contract
       it("should grant DEPLOYER_ROLE to Streme contract on SuperTokenFactoryV2", async function () {
@@ -195,7 +228,7 @@ const {
         expect(tx).to.not.be.undefined;
       }); // end it
 
-      // register StremeAllocationHook on Streme conrtracxt via registerPostDeployHook function
+      // register StremeAllocationHook on Streme conrtract via registerPostDeployHook function
       it("should register StremeAllocationHook on Streme contract", async function () {
         // set timeout
         this.timeout(60000);
@@ -1221,6 +1254,114 @@ const {
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
         await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
         console.log("Token Address: ", tokenAddress);
+
+        expect(tokenAddress).to.not.be.empty;
+      }); // end it
+
+      it("should deploy a token with 2 vaults + staking via StremeDeployV2", async function () {
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
+        const stremeDeployV2JSON = require("../artifacts/contracts/extras/StremeDeployV2.sol/StremeDeployV2.json");
+        const stremeDeployV2 = new ethers.Contract(addr.stremeDeployV2, stremeDeployV2JSON.abi, signer);
+        console.log("Using StremeDeployV2 at: ", addr.stremeDeployV2);
+        var poolConfig = {
+            "tick": -230400,
+            "pairedToken": addr.pairedToken,
+            "devBuyFee": 10000
+        };
+        var useDegen = false;
+        if (useDegen) {
+            addr.pairedToken = process.env.DEGEN;
+            poolConfig = {
+              "tick": -164600,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
+        const tokenConfig = {
+            "_name": "Bee Token2",
+            "_symbol": "BEE2",
+            "_supply": ethers.parseEther("100000000000"), // 100 billion
+            "_fee": 10000,
+            "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "_deployer": process.env.STREME_ADMIN,
+            "_fid": 8685,
+            "_image": "none",
+            "_castHash": "none",
+            "_poolConfig": poolConfig
+        };
+        var salt, tokenAddress;
+
+        await ethers.provider.send("evm_mine");
+
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        salt = result[0];
+        tokenAddress = result[1];
+        console.log("Salt: ", salt);
+        console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
+        tokenConfig["_salt"] = salt;
+
+        // create allocations
+
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
+
+        // 3 allocations, 2 for vault, 1 for staking
+        allocations = [
+            {
+                allocationType: 0, // Vault
+                admin: process.env.TEAM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [30*days, 365*days] // 30 day cliff, 365 day vesting
+                )
+            },
+            {
+                allocationType: 0, // Vault
+                admin: process.env.COMM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [1, 0] // no lock, no vesting ... needs special approval (for now at least)
+                )
+            },
+            {
+                allocationType: 1, // Staking
+                admin: ethers.ZeroAddress, // zero address for Staking allocations
+                percentage: 5, // 5%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "int96"],
+                    [1*days, 365*days] // 1 day lockup, 365 days for staking rewards stream
+                )
+            }
+        ];
+        // now createAllocationConfig on StremeAllocationHook
+        //const stremeAllocationHookJSON = require("../artifacts/contracts/hook/vault/StremeAllocationHook.sol/StremeAllocationHook.json");
+        //const stremeAllocationHook = new ethers.Contract(addr.postDeployFactory, stremeAllocationHookJSON.abi, signer);
+
+        //const tx = await stremeAllocationHook.createAllocationConfig(
+        //    tokenAddress,
+        //    allocations
+        //);
+        //console.log("createAllocationConfig tx: ", tx.hash);
+        //await tx.wait();
+        //console.log("createAllocationConfig tx mined");
+
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+
+        // temporarily change the minLockupDuration on the StremeVault to 1
+        await (await stremeVault.setMinLockupDuration(1)).wait();
+
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await (await stremeDeployV2.deployWithAllocations(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig, allocations)).wait();
+        console.log("Token Address: ", tokenAddress);
+
+        // set back the minLockupDuration on the StremeVault to 7 days
+        await (await stremeVault.setMinLockupDuration(7*days)).wait();
 
         expect(tokenAddress).to.not.be.empty;
       }); // end it
