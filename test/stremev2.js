@@ -747,7 +747,69 @@ const {
         expect(tokenAddress).to.not.be.empty;
       }); // end it
 
-      it("should deploy a token with no allocations", async function () {
+      it("should deploy a token with DEFAULT allocations", async function () {
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [signer] = await ethers.getSigners();
+        const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
+        var poolConfig = {
+            "tick": -230400,
+            "pairedToken": addr.pairedToken,
+            "devBuyFee": 10000
+        };
+        var useDegen = false;
+        if (useDegen) {
+            addr.pairedToken = process.env.DEGEN;
+            poolConfig = {
+              "tick": -164600,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
+        const tokenConfig = {
+            "_name": "Default allocations",
+            "_symbol": "DEFAULT",
+            "_supply": ethers.parseEther("100000000000"), // 100 billion
+            "_fee": 10000,
+            "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "_deployer": process.env.STREME_ADMIN,
+            "_fid": 8685,
+            "_image": "none",
+            "_castHash": "none",
+            "_poolConfig": poolConfig
+        };
+        var salt, tokenAddress;
+
+        await ethers.provider.send("evm_mine");
+
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        salt = result[0];
+        tokenAddress = result[1];
+        console.log("Salt: ", salt);
+        console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
+        tokenConfig["_salt"] = salt;
+
+        // create allocations
+
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
+
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
+        await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
+        console.log("Token Address: ", tokenAddress);
+
+        // check balance of styakingfactory ... did the default staking config get created?
+        const token = new ethers.Contract(tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)"
+        ], signer);
+        const balance = await token.balanceOf(addr.stakingFactory);
+        console.log("StakingFactory balanceOf: ", balance.toString());
+        expect(balance).to.be.gt(0);
+
+        expect(tokenAddress).to.not.be.empty;
+      }); // end it
+
+      it("should deploy a token with NO Staking, NO Vaults", async function () {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
         const [signer] = await ethers.getSigners();
         const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
@@ -795,8 +857,16 @@ const {
         // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
 
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig);
-        await (await streme.deployToken(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
+        await (await streme.deployToken(addr.tokenFactory, ethers.ZeroAddress, addr.lpFactory, ethers.ZeroAddress, tokenConfig)).wait();
         console.log("Token Address: ", tokenAddress);
+
+        // check balance of styakingfactory ... did the default staking config get created?
+        const token = new ethers.Contract(tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)"
+        ], signer);
+        const balance = await token.balanceOf(addr.stakingFactory);
+        console.log("StakingFactory balanceOf: ", balance.toString());
+        expect(balance).to.equal(0);
 
         expect(tokenAddress).to.not.be.empty;
       }); // end it
