@@ -55,9 +55,6 @@ contract StakingFactoryV2 is AccessControl {
     ISuperTokenFactory public superTokenFactory;
     address public stakedTokenImplementation;
     IGDAv1Forwarder.PoolConfig public config = IGDAv1Forwarder.PoolConfig(false, true);
-    uint256 percentageForRewards = 20;
-    int96 public flowDuration = 365 days;
-    uint256 public lockDuration = 1 days;
     address public teamRecipient;
     mapping(address => uint128) public valveUnits;
     uint256 public percentageToValve = 100;
@@ -111,14 +108,6 @@ contract StakingFactoryV2 is AccessControl {
         //bytes32 salt = keccak256(abi.encode(msg.sender, symbol));
         // convert superTokenAddress to bytes32:
         bytes32 salt = keccak256(abi.encode(stakeableToken));
-
-        // if zeroes, use the default values
-        if (stakingLockDuration == 0) {
-            stakingLockDuration = lockDuration;
-        }
-        if (stakingFlowDuration == 0) {
-            stakingFlowDuration = flowDuration;
-        }
         
         stakedToken = Clones.cloneDeterministic(stakedTokenImplementation, salt);
 
@@ -185,19 +174,6 @@ contract StakingFactoryV2 is AccessControl {
     function predictStakedTokenAddress(address stakeableToken) external view returns (address) {
         bytes32 salt = keccak256(abi.encode(stakeableToken));
         return Clones.predictDeterministicAddress(stakedTokenImplementation, salt);
-    }   
-
-    function setPercentageForRewards(uint256 _percentageForRewards) external onlyRole(MANAGER_ROLE) {
-        percentageForRewards = _percentageForRewards;
-    }
-
-    function setFlowDuration(int96 _flowDuration) external onlyRole(MANAGER_ROLE) {
-        flowDuration = _flowDuration;
-    }
-
-    function setLockDuration(uint256 _lockDuration) external onlyRole(MANAGER_ROLE) {
-        lockDuration = _lockDuration;
-        emit LockDurationUpdated(_lockDuration);
     }
 
     function setGDA(IGDAv1Forwarder _gda) external onlyRole(MANAGER_ROLE) {
