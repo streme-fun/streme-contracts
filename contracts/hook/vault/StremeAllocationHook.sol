@@ -40,10 +40,10 @@ contract StremeAllocationHook is AccessControl {
     // mapping of token address to allocation config array
     mapping (address => AllocationConfig[]) public allocationConfigs;
 
-    error TokenAlreadyDeployed();
-    error AllocationAlreadyExists();
-    error TransferFailed();
-    error NotImplemented();
+    error TokenAlreadyDeployed(); // 0x6474d0da
+    error AllocationAlreadyExists(); // 0x89ac0f21
+    error TransferFailed(); // 0x90b8ec18
+    error NotImplemented(); // 0xd6234725
 
     event AllocationConfigCreated(
         AllocationType allocationType,
