@@ -147,7 +147,7 @@ contract StakingFactoryV2 is AccessControl {
         }
 
         // @dev 5. Distribute the reward flow
-        int96 flowRate = int96(uint96(supply)) / stakingFlowDuration;
+        int96 flowRate = int96(uint96(supply / uint256(uint96(stakingFlowDuration))));
         gda.distributeFlow(rewardToken, address(this), pool, flowRate, "");
         emit StakedTokenCreated(stakedToken, stakeableToken, pool, supply, lockDuration, flowDuration);
 
