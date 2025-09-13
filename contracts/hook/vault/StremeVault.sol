@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+// modified from https://github.com/clanker-devco/v4-contracts/blob/e0ed708395fe31d10c427890c4c55d6752bfa302/src/extensions/ClankerVault.sol
 pragma solidity ^0.8.15;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -61,8 +62,6 @@ contract StremeVault is ReentrancyGuard, AccessControl {
         address pool; // GDA pool address
         address box; // StremeVaultBox address
     }
-
-    // OLD: mapping(address => Allocation) public allocation;
 
     // mapping token => admin => allocation:
     mapping(address => mapping(address => Allocation)) public allocations;
