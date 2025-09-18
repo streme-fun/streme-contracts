@@ -131,7 +131,7 @@ contract StakingFactoryV2 is AccessControl {
 
         // @dev 3.1 grant safety valve units to this contract, as if someone staked an equivalent amount
         // only if not wrapped:
-        if (!isWrapped) {
+        if (!isWrapped && percentageToValve > 0) {
             valveUnits[stakeableToken] = IStakedToken(stakedToken).tokensToUnits(supply * percentageToValve / 100);
             IStakedToken(stakedToken).updateMemberUnits(address(this), valveUnits[stakeableToken]);
             gda.connectPool(pool, "");
