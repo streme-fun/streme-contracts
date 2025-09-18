@@ -107,11 +107,11 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
             pool.updateMemberUnits(to, pool.getUnits(to) + units);
         } else {
             // remove the units from the sender
-            pool.updateMemberUnits(msg.sender, 0);
+            pool.updateMemberUnits(msg.sender, pool.getUnits(msg.sender) - units);
             // add units to new delegate
             pool.updateMemberUnits(to, pool.getUnits(to) + units);
         }
-        delegates[msg.sender] = to;
+        delegates[msg.sender] = to == msg.sender ? address(0) : to;
     }
 
     function tokensToUnits(uint256 amount) external view returns (uint128) {
@@ -154,6 +154,7 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
         internal
         override(ERC20Upgradeable)
     {
+        super._update(from, to, amount);
         if (from != address(0)) {
             require(block.timestamp > depositTimestamps[from] + lockDuration, "StakedToken: tokens are still locked");
         }
@@ -174,6 +175,5 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
             uint128 recipientUnits = pool.getUnits(to);
             pool.updateMemberUnits(to, recipientUnits + transferUnits);
         }
-        super._update(from, to, amount);
     }
 }

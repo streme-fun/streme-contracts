@@ -451,6 +451,34 @@ const {
         expect(units).to.equal(2n); // should be 2 units  
       }); // end it
 
+      it("should allow George to BATCH add member units to the first vault allocation", async function() {
+        // timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stremeVaultJSON = require("../artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json");
+        const stremeVault = new ethers.Contract(addr.stremeVault, stremeVaultJSON.abi, signer);
+        const allocation = allocations[0];
+        const tx = await stremeVault.connect(george).updateMemberUnitsBatch(addr.tokenAddress, george.address, [george.address, process.env.KRAMER], [69, 420]);
+        console.log("updateMemberUnitsBatch tx: ", tx.hash);
+        await tx.wait();
+        console.log("updateMemberUnitsBatch tx mined");
+        // get allocation details
+        const details = await stremeVault.allocation(addr.tokenAddress, george.address);
+        console.log("Allocation details: ", details);
+        const poolAddress = details.pool;
+        console.log("Pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const units = await pool.getUnits(george.address);
+        console.log("Pool units: ", units.toString());
+        expect(units).to.equal(69n); // should be 69 units
+        const kramerUnits = await pool.getUnits(process.env.KRAMER);
+        console.log("Kramer Pool units: ", kramerUnits.toString());
+        expect(kramerUnits).to.equal(420n); // should be 420 units
+      }); // end it
+
       it("should revert if claim() called before unlock", async function() {
         // set timeout
         this.timeout(60000);
@@ -520,6 +548,156 @@ const {
         console.log("George's token balance: ", balance.toString());
         expect(balance).to.be.gt(0);
       });
+
+      it("should enable george to delegate his staking rewards BEFORE he even stakes", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(addr.tokenAddress);
+        console.log("Predicted Staked Token address: ", addr.stakedTokenAddress);
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        const tx = await stakedToken.delegate(process.env.KRAMER);
+        console.log("Delegate tx: ", tx.hash);
+        await tx.wait();
+        console.log("Delegate tx mined");
+        const delegatee = await stakedToken.delegates(george.address);
+        console.log("George's delegatee: ", delegatee);
+        expect(delegatee).to.equal(process.env.KRAMER);
+      });
+
+      it("should enable george to stake 90% of his balance", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(addr.tokenAddress);
+        console.log("Predicted Staked Token address: ", addr.stakedTokenAddress);
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        // stake 90% of george's balance
+        const token = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)",
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        const balance = await token.balanceOf(george.address);
+        console.log("George's balance: ", balance.toString());
+        const stakeAmount = balance * 90n / 100n;
+        // approve stakingFactory for stakeAmount
+        console.log("stakeAmount: ", stakeAmount.toString());
+        await token.approve(addr.stakedTokenAddress, stakeAmount);
+        const tx = await stakedToken.stake(george.address, stakeAmount);
+        console.log("Stake tx: ", tx.hash);
+        await tx.wait();
+        console.log("Stake tx mined");
+
+        // extra test: george stakes 100 tokens to kramer
+        const extraStakeAmount = ethers.parseUnits("100", 18);
+        await token.approve(addr.stakedTokenAddress, extraStakeAmount);
+        const extraTx = await stakedToken.stake(process.env.KRAMER, extraStakeAmount);
+        console.log("Extra stake tx: ", extraTx.hash);
+        await extraTx.wait();
+        console.log("Extra stake tx mined");
+
+        const stakedBalance = await stakedToken.balanceOf(george.address);
+        console.log("George's staked balance: ", stakedBalance.toString());
+        const kramerStakedBalance = await stakedToken.balanceOf(process.env.KRAMER);
+        console.log("Kramer's staked balance: ", kramerStakedBalance.toString());
+        expect(stakedBalance).to.equal(stakeAmount);
+      });
+
+      it("should check the staking member units of george and kramer", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(addr.tokenAddress);
+        console.log("Predicted Staked Token address: ", addr.stakedTokenAddress);
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        const poolAddress = await stakedToken.pool();
+        console.log("Staking pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, george);
+        const georgeUnits = await pool.getUnits(george.address);
+        console.log("George's staking pool units: ", georgeUnits.toString());
+        expect(georgeUnits).to.equal(0);
+        const kramerUnits = await pool.getUnits(process.env.KRAMER);
+        console.log("Kramer's staking pool units: ", kramerUnits.toString());
+        expect(kramerUnits).to.be.gt(0);
+      });
+
+      it("should enable george to delegate his staking rewards BACK to himself", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(addr.tokenAddress);
+        console.log("Predicted Staked Token address: ", addr.stakedTokenAddress);
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        const tx = await stakedToken.delegate(george.address);
+        console.log("Delegate tx: ", tx.hash);
+        await tx.wait();
+        console.log("Delegate tx mined");
+        const delegatee = await stakedToken.delegates(george.address);
+        console.log("George's delegatee: ", delegatee);
+        expect(delegatee).to.equal(ethers.ZeroAddress);
+      });
+
+      it("should check the staking member units of george and kramer after George delegates to self", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(addr.tokenAddress);
+        console.log("Predicted Staked Token address: ", addr.stakedTokenAddress);
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        const poolAddress = await stakedToken.pool();
+        console.log("Staking pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, george);
+        const georgeUnits = await pool.getUnits(george.address);
+        console.log("George's staking pool units: ", georgeUnits.toString());
+        expect(georgeUnits).to.be.gt(0);
+        const kramerUnits = await pool.getUnits(process.env.KRAMER);
+        console.log("Kramer's staking pool units: ", kramerUnits.toString());
+        expect(kramerUnits).to.equal(100n);
+      });
+
+      it("should check the units of the StakingFactory contract", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
+        const poolAddress = await stakedToken.pool();
+        console.log("Staking pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const units = await pool.getUnits(addr.stakingFactory);
+        console.log("StakingFactory units: ", units.toString());
+        expect(units).to.be.gt(0);
+      });
+        
 
       it("should check the balance of the StakingFactory contract", async function() {
         // set timeout
@@ -1365,6 +1543,19 @@ const {
 
         expect(tokenAddress).to.not.be.empty;
       }); // end it
+
+      it("should set percentageToValve to 50% on StakingFactoryV2", async function() {
+        const [signer] = await ethers.getSigners();
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, signer);
+        const tx = await stakingFactoryV2.setPercentageToValve(50);
+        console.log("setPercentageToValve tx: ", tx.hash);
+        await tx.wait();
+        console.log("setPercentageToValve tx mined");
+        const pct = await stakingFactoryV2.percentageToValve();
+        console.log("percentageToValve: ", pct.toString());
+        expect(pct).to.equal(50);
+      });
 
 
     }); // end describe    
