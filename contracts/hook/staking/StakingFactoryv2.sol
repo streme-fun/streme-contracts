@@ -20,6 +20,7 @@ interface IGDAv1Forwarder {
         bool distributionFromAnyAddress;
     }
     function createPool(address superTokenAddress, address admin, PoolConfig memory config) external returns (bool success, address pool);
+    function connectPool(address pool, bytes calldata userData) external returns (bool);
     function getFlowDistributionFlowRate(address superTokenAddress, address from, address to) external view returns (int96);
     function distributeFlow(address superTokenAddress, address from, address poolAddress, int96 requestedFlowRate, bytes calldata userData) external returns (bool);
     function distribute(address token, address from, address pool, uint256 requestedAmount, bytes calldata userData) external returns (bool);
@@ -133,6 +134,7 @@ contract StakingFactoryV2 is AccessControl {
         if (!isWrapped) {
             valveUnits[stakeableToken] = IStakedToken(stakedToken).tokensToUnits(supply * percentageToValve / 100);
             IStakedToken(stakedToken).updateMemberUnits(address(this), valveUnits[stakeableToken]);
+            gda.connectPool(pool, "");
         }
 
         // @dev 5. Distribute the reward flow
