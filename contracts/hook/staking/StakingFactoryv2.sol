@@ -94,7 +94,6 @@ contract StakingFactoryV2 is AccessControl {
         uint256 stakingLockDuration,
         int96 stakingFlowDuration
     ) external returns (address stakedToken) {
-        // TODO: enforce minimum supply for self-serve staking?
         stakedToken = _createStakedToken(stakeableToken, teamRecipient, supply, stakingLockDuration, stakingFlowDuration);
     }
 
