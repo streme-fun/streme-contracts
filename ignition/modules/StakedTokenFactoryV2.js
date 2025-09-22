@@ -1,0 +1,33 @@
+const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
+
+const chain = hre.network.name;
+
+const teamRecipient = process.env.STREME_TEAM_RECIPIENT; // Streme team address to receive portion of the fees
+
+var addr = {};
+if (chain == "degen") {
+  addr.gda = "0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08"; // GDAForwarder on degen chain
+} else if (chain == "baseSepolia") {
+  addr.gda = "0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08"; // GDAForwarder on baseSepolia chain
+} else if (chain == "sepolia") {
+  addr.gda = "0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08"; // GDAForwarder on sepolia chain
+} else if (chain == "base" || chain == "localhost") {
+  addr.gda = "0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08"; // GDAForwarder on base chain
+  addr.protocolSuperTokenFactory = process.env.SUPER_TOKEN_FACTORY;
+} else {
+  console.log("chain not supported");
+  return;
+}
+
+module.exports = buildModule("StakedTokenFactoryModule", (m) => {
+  const staked = m.contract("StakedTokenV2", []);
+  console.log(`npx hardhat verify --network ${chain} ${staked.address}`);
+  const factory = m.contract("StakingFactoryV2", [addr.gda, staked, teamRecipient, addr.protocolSuperTokenFactory], {
+    after: [staked]
+  });
+  console.log(`npx hardhat verify --network ${chain} ${factory.address} ${addr.gda} ${staked.address} ${teamRecipient} ${addr.protocolSuperTokenFactory}`);
+  return { staked, factory };
+});
+
+// npx hardhat ignition deploy ignition/modules/StakedTokenFactoryV2.js --network localhost --deployment-id stake-factory-local-one
+// npx hardhat ignition deploy ignition/modules/StakedTokenFactoryV2.js --network base --deployment-id stake-factory-base-one
