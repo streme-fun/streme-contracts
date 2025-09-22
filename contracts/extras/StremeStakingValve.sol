@@ -73,7 +73,7 @@ contract StremeStakingValve is AccessControl {
         lpFactory = _lpFactory;
         uniswapFactory = _uniswapFactory;
         positionManager = _positionManager;
-        grantRole(MANAGER_ROLE, msg.sender);
+        _grantRole(MANAGER_ROLE, msg.sender);
     }
 
     function openValve(address token) external {
@@ -121,6 +121,20 @@ contract StremeStakingValve is AccessControl {
         uint256 lpSupply = (100_000_000_000 * 1e18) - ((totalAllocationPercentage * 100_000_000_000 * 1e18) / 100);
         // apply 1 minus percentSwappedOut
         return (lpSupply * (100 - percentSwappedOut)) / 100;
+    }
+
+    function canCloseValve(address token) external view returns (bool) {
+        if (lockedValves[token]) {
+            return false;
+        }
+        return !_balanceThresholdMet(token);
+    }
+
+    function canOpenValve(address token) external view returns (bool) {
+        if (lockedValves[token]) {
+            return false;
+        }
+        return _balanceThresholdMet(token);
     }
 
     function setPercentSwappedOut(uint256 percent) external onlyRole(MANAGER_ROLE) {

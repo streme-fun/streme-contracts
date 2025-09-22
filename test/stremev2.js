@@ -35,8 +35,10 @@ const {
         addr.gdaForwarder = process.env.GDA_FORWARDER;
         addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
         addr.uniswapV3Factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"; 
+        addr.uniswapV3PositionManager = "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1";
         addr.protocolFactory = "0xe20B9a38E0c96F61d1bA6b42a61512D56Fea1Eb3"; // SuperTokenFactory on base chain
         addr.protocolSuperTokenFactory = process.env.SUPER_TOKEN_FACTORY;
+        addr.stremeZap = process.env.STREME_ZAP;
     } else {
         console.log("chain not supported");
         return;
@@ -239,7 +241,31 @@ const {
         console.log("Registered StremeAllocationHook on Streme contract: ", tx.hash);
         expect(tx).to.not.be.undefined;
       }); // end it
-  
+
+      it("should deploy StremeStakingValve contract", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeSafetyValveJSON = require("../artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json");
+        const [signer] = await ethers.getSigners();
+        // deploy StremeStakingValve:
+        const StremeStakingValve = await ethers.getContractFactory("StremeStakingValve", signer);
+        const stremeStakingValve = await StremeStakingValve.deploy(addr.stakingFactory, addr.stremeAllocationHook, addr.lpFactory, addr.uniswapV3Factory, addr.uniswapV3PositionManager);
+        console.log("StremeStakingValve deployed at: ", stremeStakingValve.target);
+        addr.stremeStakingValve = stremeStakingValve.target;
+        expect(stremeStakingValve.target).to.not.be.undefined;
+      });
+
+      it("should grant MANAGER_ROLE to StremeStakingValve on StakingFactoryV2", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const [signer] = await ethers.getSigners();
+        const stakingFactory = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, signer);
+        const tx = await stakingFactory.grantRole(stakingFactory.MANAGER_ROLE(), addr.stremeStakingValve);
+        console.log("Granted MANAGER_ROLE to StremeStakingValve contract on StakingFactoryV2: ", tx.hash);
+        expect(tx).to.not.be.undefined;
+      }); // end it
+
       it("should deploy token", async function () {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
         const [signer] = await ethers.getSigners();
@@ -249,7 +275,7 @@ const {
             "pairedToken": addr.pairedToken,
             "devBuyFee": 10000
         };
-        var useDegen = true;
+        var useDegen = false;
         if (useDegen) {
             addr.pairedToken = process.env.DEGEN;
             poolConfig = {
@@ -289,7 +315,7 @@ const {
             {
                 allocationType: 0, // Vault
                 admin: process.env.STREME_ADMIN, // beneficiary address
-                percentage: 88, // 88%
+                percentage: 5, // 5%
                 data: ethers.AbiCoder.defaultAbiCoder().encode(
                     ["uint256", "uint256"],
                     [30*days, 180*days] // 30 day cliff, 180 day vesting
@@ -298,7 +324,7 @@ const {
             {
                 allocationType: 0, // Vault
                 admin: process.env.KRAMER, // beneficiary address
-                percentage: 1, // 1%
+                percentage: 5, // 5%
                 data: ethers.AbiCoder.defaultAbiCoder().encode(
                     ["uint256", "uint256"],
                     [7*days, 0] // 7 day cliff, no vesting
@@ -307,7 +333,7 @@ const {
             {
                 allocationType: 1, // Staking
                 admin: ethers.ZeroAddress, // zero address for Staking allocations
-                percentage: 1, // 1%
+                percentage: 20, // 20%
                 data: ethers.AbiCoder.defaultAbiCoder().encode(
                     ["uint256", "int96"],
                     [1*days, 365*days] // 1 day lockup, 365 days for staking rewards stream
@@ -801,6 +827,162 @@ const {
         expect(allocation.amountTotal).to.equal(allocationAmount);
       });
 
+
+      it("should check that safety valve cannot be opened", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeStakingValveJSON = require("../artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json");
+        const stremeStakingValve = new ethers.Contract(addr.stremeStakingValve, stremeStakingValveJSON.abi, signer);
+        // check it valve can be opened:
+        const canOpen = await stremeStakingValve.canOpenValve(addr.tokenAddress);
+        console.log("Can open valve: ", canOpen);
+        expect(canOpen).to.equal(false);
+      });
+
+      it("should check that safety valve can be closed", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeStakingValveJSON = require("../artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json");
+        const stremeStakingValve = new ethers.Contract(addr.stremeStakingValve, stremeStakingValveJSON.abi, signer);
+        // check it valve can be opened:
+        const canClose = await stremeStakingValve.canCloseValve(addr.tokenAddress);
+        console.log("Can close valve: ", canClose);
+        expect(canClose).to.equal(true);
+      });
+
+
+      it("should BUY 7 ETH work of token from uniswap v3 pool", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        // buy using StremeZap
+        const stremeZapJSON = require("../artifacts/contracts/StremeZap.sol/StremeZap.json");
+        const stremeZap = new ethers.Contract(addr.stremeZap, stremeZapJSON.abi, signer);
+        const buyAmount = ethers.parseEther("7"); // 1 ETH
+        const tx = await stremeZap.zap(addr.tokenAddress, buyAmount, 0, ethers.ZeroAddress, { value: buyAmount });
+        console.log("Zap tx: ", tx.hash);
+        await tx.wait();
+        console.log("Zap tx mined");
+        // check balance of tokenAddress for signer
+        const token = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)"
+        ], signer);
+        const balance = await token.balanceOf(signer.address);
+        console.log("Signer balance: ", balance.toString());
+        expect(balance).to.be.gt(0);
+      });
+
+      it("should check the memberUnits of the StakingFactory contract BEFORE safety valve opened", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
+        const poolAddress = await stakedToken.pool();
+        console.log("Staking pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const units = await pool.getUnits(addr.stakingFactory);
+        console.log("StakingFactory units: ", units.toString());
+        expect(units).to.be.gt(1);
+      });
+
+      it("should open the safety valve", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeStakingValveJSON = require("../artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json");
+        const stremeStakingValve = new ethers.Contract(addr.stremeStakingValve, stremeStakingValveJSON.abi, signer);
+        // check it valve can be opened:
+        const canOpen = await stremeStakingValve.canOpenValve(addr.tokenAddress);
+        console.log("Can open valve: ", canOpen);
+        expect(canOpen).to.equal(true);
+        const tx = await stremeStakingValve.openValve(addr.tokenAddress);
+        console.log("Open valve tx: ", tx.hash);
+        await tx.wait();
+        console.log("Open valve tx mined");
+      });
+
+      it("should check the memberUnits of the StakingFactory contract after safety valve opened", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
+        const poolAddress = await stakedToken.pool();
+        console.log("Staking pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const units = await pool.getUnits(addr.stakingFactory);
+        console.log("StakingFactory units: ", units.toString());
+        expect(units).to.equal(1);
+      });
+
+      it("should check that safety valve cannot be closed", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeStakingValveJSON = require("../artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json");
+        const stremeStakingValve = new ethers.Contract(addr.stremeStakingValve, stremeStakingValveJSON.abi, signer);
+        // check it valve can be opened:
+        const canClose = await stremeStakingValve.canCloseValve(addr.tokenAddress);
+        console.log("Can close valve: ", canClose);
+        expect(canClose).to.equal(false);
+      });
+
+      it("should close the safety valve with MANAGER override", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeStakingValveJSON = require("../artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json");
+        const stremeStakingValve = new ethers.Contract(addr.stremeStakingValve, stremeStakingValveJSON.abi, other);
+        const tx = await stremeStakingValve.closeValve(addr.tokenAddress);
+        console.log("Close valve tx: ", tx.hash);
+        await tx.wait();
+        console.log("Close valve tx mined");
+        // check it valve is locked:
+        const locked = await stremeStakingValve.lockedValves(addr.tokenAddress);
+        console.log("Valve locked: ", locked);
+        expect(locked).to.equal(true);
+      });
+
+      it("should check the memberUnits of the StakingFactory contract after safety valve CLOSED", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [signer] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
+        const poolAddress = await stakedToken.pool();
+        console.log("Staking pool address: ", poolAddress);
+        const abi = [
+          "function getUnits(address account) view returns (uint128)"
+        ];
+        const pool = new ethers.Contract(poolAddress, abi, signer);
+        const units = await pool.getUnits(addr.stakingFactory);
+        console.log("StakingFactory units: ", units.toString());
+        expect(units).to.be.gt(1);
+      });
+
+      it("should set percentSwappedOut to 20%", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        const stremeStakingValveJSON = require("../artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json");
+        const stremeStakingValve = new ethers.Contract(addr.stremeStakingValve, stremeStakingValveJSON.abi, other);
+        const tx = await stremeStakingValve.setPercentSwappedOut(20);
+        await tx.wait();
+        console.log("setPercentSwappedOut tx mined");
+        const percent = await stremeStakingValve.percentSwappedOut();
+        console.log("Percent swapped out: ", percent.toString());
+        expect(percent).to.equal(20);
+      });
+
       it("should enable george to create staking for a non streme coin", async function() {
         // set timeout
         this.timeout(60000);
@@ -852,6 +1034,9 @@ const {
         await stakedToken.stake(george.address, stakeAmount);
         expect(await stakedToken.balanceOf(george.address)).to.be.greaterThan(0);
       });
+
+
+
 
       it("should deploy a token with 2 vaults + staking", async function () {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
