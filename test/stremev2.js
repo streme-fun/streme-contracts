@@ -84,7 +84,7 @@ const {
       it("should deploy StakedTokenV2 implementation", async function () {
         // set timeout
         this.timeout(60000);
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const [signer] = await ethers.getSigners();
         const StakedToken = await ethers.getContractFactory("StakedTokenV2", signer);
         const stakedToken = await StakedToken.deploy();
@@ -579,7 +579,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [other, signer, george] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
         const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
         // predict Staked Token address
@@ -599,7 +599,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [other, signer, george] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
         const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
         // predict Staked Token address
@@ -641,7 +641,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [other, signer, george] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
         const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
         // predict Staked Token address
@@ -666,7 +666,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [other, signer, george] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
         const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
         // predict Staked Token address
@@ -686,7 +686,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [other, signer, george] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
         const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
         // predict Staked Token address
@@ -711,7 +711,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [signer] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
         const poolAddress = await stakedToken.pool();
         console.log("Staking pool address: ", poolAddress);
@@ -878,7 +878,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [signer] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
         const poolAddress = await stakedToken.pool();
         console.log("Staking pool address: ", poolAddress);
@@ -911,7 +911,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [signer] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
         const poolAddress = await stakedToken.pool();
         console.log("Staking pool address: ", poolAddress);
@@ -956,7 +956,7 @@ const {
         // set timeout
         this.timeout(60000);
         const [signer] = await ethers.getSigners();
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, signer);
         const poolAddress = await stakedToken.pool();
         console.log("Staking pool address: ", poolAddress);
@@ -1020,7 +1020,7 @@ const {
         this.timeout(60000);
         const [other, signer, george] = await ethers.getSigners();
         // staked token v2 JSON:
-        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenv2.sol/StakedTokenV2.json");
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
         const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
         // george stakes 100 non-streme coins
         const stakeAmount = ethers.parseUnits("100", 18);
