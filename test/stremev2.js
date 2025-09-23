@@ -637,6 +637,40 @@ const {
         expect(stakedBalance).to.equal(stakeAmount);
       });
 
+      it("should enable george to stake and delegate in one transaction", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george] = await ethers.getSigners();
+        const stakedTokenV2JSON = require("../artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json");
+        const stakingFactoryV2JSON = require("../artifacts/contracts/hook/staking/StakingFactoryV2.sol/StakingFactoryV2.json");
+        const stakingFactoryV2 = new ethers.Contract(addr.stakingFactory, stakingFactoryV2JSON.abi, george);
+        // predict Staked Token address
+        addr.stakedTokenAddress = await stakingFactoryV2.predictStakedTokenAddress(addr.tokenAddress);
+        console.log("Predicted Staked Token address: ", addr.stakedTokenAddress);
+        const stakedToken = new ethers.Contract(addr.stakedTokenAddress, stakedTokenV2JSON.abi, george);
+        // stake 1% of george's balance
+        const token = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)",
+          "function approve(address spender, uint256 amount) external returns (bool)"
+        ], george);
+        const balance = await token.balanceOf(george.address);
+        console.log("George's balance: ", balance.toString());
+        const stakeAmount = balance / 100n;
+        // approve stakingFactory for stakeAmount
+        console.log("stakeAmount: ", stakeAmount.toString());
+        await token.approve(addr.stakedTokenAddress, stakeAmount);
+        const tx = await stakedToken.stakeAndDelegate(process.env.KRAMER, stakeAmount);
+        console.log("Stake and delegate tx: ", tx.hash);
+        await tx.wait();
+        console.log("Stake and delegate tx mined");
+        const stakedBalance = await stakedToken.balanceOf(george.address);
+        console.log("George's staked balance: ", stakedBalance.toString());
+        expect(stakedBalance).to.be.gte(stakeAmount);
+        const delegatee = await stakedToken.delegates(george.address);
+        console.log("George's delegatee: ", delegatee);
+        expect(delegatee).to.equal(process.env.KRAMER);
+      });
+
       it("should check the staking member units of george and kramer", async function() {
         // set timeout
         this.timeout(60000);

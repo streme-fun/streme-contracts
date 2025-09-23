@@ -114,6 +114,13 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
         delegates[msg.sender] = to == msg.sender ? address(0) : to;
     }
 
+    function stakeAndDelegate(address delegateTo, uint256 amount) external {
+        this.stake(msg.sender, amount);
+        if (delegateTo != msg.sender) {
+            this.delegate(delegateTo);
+        }
+    }
+
     function tokensToUnits(uint256 amount) external view returns (uint128) {
         return _units(amount);
     }
