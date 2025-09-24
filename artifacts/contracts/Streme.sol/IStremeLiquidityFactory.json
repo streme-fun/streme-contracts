@@ -1,0 +1,60 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IStremeLiquidityFactory",
+  "sourceName": "contracts/Streme.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "contract IERC20",
+          "name": "token",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "pairedToken",
+          "type": "address"
+        },
+        {
+          "internalType": "int24",
+          "name": "tick",
+          "type": "int24"
+        },
+        {
+          "internalType": "uint24",
+          "name": "fee",
+          "type": "uint24"
+        },
+        {
+          "internalType": "uint256",
+          "name": "supplyPerPool",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "deployer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "presaleEth",
+          "type": "uint256"
+        }
+      ],
+      "name": "createLP",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "positionId",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

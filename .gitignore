@@ -1,5 +1,5 @@
 cache/
-artifacts/
+artifacts/*
 !artifacts/contracts/
 .DS_STORE
 ignition/deployments/
