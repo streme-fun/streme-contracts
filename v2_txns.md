@@ -19,7 +19,7 @@ STREME_PUBLIC_DEPLOYER_V2 = "0x8712F62B3A2EeBA956508e17335368272f162748"
 
 Token deployers can use natural language to request token deployment on Farcaster. The description below outlines how to deploy directly via the `STREME_PUBLIC_DEPLOYER_V2` contract, which can be done via a web form or script.
 
-*Contract:* `STREME_PUBLIC_DEPLOYER_V2` [source](contracts/extras/StremeDeployV2.sol)
+*Contract:* `STREME_PUBLIC_DEPLOYER_V2` ([source](contracts/extras/StremeDeployV2.sol))
 
 *ABI:* [StremeDeployV2.json](artifacts/contracts/extras/StremeDeployV2.sol/StremeDeployV2.json)
 
