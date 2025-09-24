@@ -89,6 +89,12 @@ contract StremeDeployV2 {
         IStreme.PreSaleTokenConfig memory preSaleTokenConfig,
         IStremeAllocationHook.AllocationConfig[] memory allocationConfigs
     ) external payable returns (address token, uint256 liquidityId) {
+        ( , token) = streme.generateSalt(
+            preSaleTokenConfig._symbol,
+            preSaleTokenConfig._deployer,
+            tokenFactory,
+            preSaleTokenConfig._poolConfig.pairedToken
+        );
         stremeAllocationHook.createAllocationConfig(token, allocationConfigs);
         return streme.deployToken{value:msg.value}(
             tokenFactory,

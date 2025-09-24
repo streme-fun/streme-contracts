@@ -40,4 +40,5 @@ module.exports = buildModule("StremeDeployV2Module", (m) => {
   return { deployer };
 });
 
-// npx hardhat ignition deploy ignition/modules/StremeDeploy.js --network base --deployment-id streme-deploy-v2-one
+// npx hardhat ignition deploy ignition/modules/StremeDeployV2.js --network base --deployment-id streme-deploy-v2-one
+// npx hardhat ignition deploy ignition/modules/StremeDeployV2.js --network base --deployment-id streme-deploy-v2-two
