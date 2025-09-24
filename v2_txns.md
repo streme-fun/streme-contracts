@@ -29,7 +29,7 @@ There are two deployment functions.
 
 This option will deploy a token with zero vaults and include default staking rewards (currently 20% supply, 24 hour lock, 365 day flowDuration):
 
-```
+```solidity
 function deploy(
         address tokenFactory,
         address postDeployHook,
@@ -51,7 +51,7 @@ For more details on the parameters for this function, see the description of the
 
 In "v2" the term _allocations_ is used to include both _Staking_ and _Vault_ allocations of tokens from the total supply. This enables customization of the staking parameters (including disabling staking) and the (optional) creation of one or more _vaults_ for the token. For details see [Streme v2 Configuration Options](StremeV2.md).
 
-```
+```solidity
 function deployWithAllocations(
         address tokenFactory,
         address postDeployHook,
