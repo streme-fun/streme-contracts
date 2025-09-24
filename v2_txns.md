@@ -31,12 +31,12 @@ This option will deploy a token with zero vaults and include default staking rew
 
 ```solidity
 function deploy(
-        address tokenFactory,
-        address postDeployHook,
-        address liquidityFactory,
-        address postLPHook,
-        IStreme.PreSaleTokenConfig memory preSaleTokenConfig
-    ) external payable returns (address token, uint256 liquidityId)
+    address tokenFactory,
+    address postDeployHook,
+    address liquidityFactory,
+    address postLPHook,
+    IStreme.PreSaleTokenConfig memory preSaleTokenConfig
+) external payable returns (address token, uint256 liquidityId)
 ```
 
 This function is identical to the `deploy()` function from v1 of the Public Deployer contract. 
@@ -55,13 +55,13 @@ In "v2" the term _allocations_ is used to include both _Staking_ and _Vault_ all
 
 ```solidity
 function deployWithAllocations(
-        address tokenFactory,
-        address postDeployHook,
-        address liquidityFactory,
-        address postLPHook,
-        IStreme.PreSaleTokenConfig memory preSaleTokenConfig,
-        IStremeAllocationHook.AllocationConfig[] memory allocationConfigs
-    ) external payable returns (address token, uint256 liquidityId)
+    address tokenFactory,
+    address postDeployHook,
+    address liquidityFactory,
+    address postLPHook,
+    IStreme.PreSaleTokenConfig memory preSaleTokenConfig,
+    IStremeAllocationHook.AllocationConfig[] memory allocationConfigs
+) external payable returns (address token, uint256 liquidityId)
 ```
 
 The parameters of this function are the same as `deploy()` but with an extra paramter for an array of _allocation configs_.
@@ -143,3 +143,109 @@ const allocations = [
 await (await stremeDeployV2.deployWithAllocations(process.env.STREME_SUPER_TOKEN_FACTORY, process.env.STREME_ALLOCATION_HOOK, process.env.STREME_LP_FACTORY, ethers.ZeroAddress, tokenConfig, allocations)).wait();
 ```
 
+### Vault Management
+
+After a token has been deployed with one or more vaults, the admins of the vault can peform certain functions. The admins will usually be EOA addresses controlled by the token deployer, but may be related 3rd parties, or even smart contracts. Vault admins can 1) change the admin and 2) update member units (shares) in the vault. 
+
+*Contract:* `STREME_VAULT` ([source](contracts/hook/vault/StremeVault.sol))
+
+*ABI:* [StremeVault.sol](artifacts/contracts/hook/vault/StremeVault.sol/StremeVault.json)
+
+#### Change the admin of the vault
+
+The current admin can change the admin address of the vault to another address.
+
+```solidity
+function editAllocationAdmin(
+    address token, 
+    address oldAdmin, 
+    address newAdmin
+) external
+```
+- This can _only_ be called by the `oldAdmin` address.
+- `newAdmin` cannot be the same address as an admin for another vault _for the same token_.
+- *Important*: _any member units assigned to the old admin will be transferred to the new admin during the execution of this function_. In some scenarios, this may be undesirable -- in such cases, prior to changing the admin, the `oldAdmin` may want to re-assign any member units to a 3rd address controlled by the old admin.
+
+#### Update member units (beneficiary shares)
+
+At the time of vault creation, the _admin_ is given a single "member unit". At this point, the vault has only one member who has one unit -- in other words, the admin own 100% of the member units and is the sole beneficiary of 100% of the tokens in the vault, subject to the lock up period and vesting periods configured.
+
+After vault creation, the admin -- and _only_ the admim -- can add beneficiaries by giving them units in the vault. The functions below also enable the admin to _update_ the number of member units for any address (including their own).
+
+```solidity
+function updateMemberUnits(
+    address token,
+    address admin,
+    address member,
+    uint128 newUnits
+) external
+```
+
+- must be called by `admin`
+- `admin` must actually be the admin of a vault for `token`
+- `member` can be any address, including the admin itself
+- `newUnits` is the new balance of units for the `member`. Note that this value is NOT incremental -- it does NOT _add_ the number of units for the `member ` -- rather it _updates_ the _total_ number of units for `member`
+- member units are shares that represent a share of the total token distribution from the vault
+- this function can be called both while the vault is locked and while the tokens are vesting (streaming). In the latter case, the _flowRate_ of each member is instantly updated to reflect their new proportional share.
+
+```solidity
+function updateMemberUnitsBatch(
+    address token,
+    address admin,
+    address[] calldata members,
+    uint128[] calldata newUnits
+) external
+```
+
+- same as the above, but enables updates to batches of members in a single txn
+- `members` and `newUnits` are arrays: `members[0]` gets `newUnits[0]` units, and so on.
+
+```solidity
+function getUnits(
+    address token, 
+    address admin, 
+    address member
+) external view returns (uint128)
+```
+
+- this is a _view_ function that be used to fetch the current number of member units for a `member` (useful if the admin want to increment or decrement units for `member`)
+
+#### Claim Tokens of an Unlocked Vault
+
+Once the lockup period has ended, calling `claim()` will trigger the distribution of tokens in the vault.
+
+```solidity
+function claim(
+    address token, 
+    address admin
+) external
+```
+
+- anyone can call this function -- caller does NOT need to be the admin
+- the lockup period must have ended before calling
+- tokens are distributed to the members of the vault, not to the caller
+- if no vesting has been configured, tokens are instantly distributed to the members of the vault, according to their share of the member units
+- if vesting has been configured for the vault, any tokens deemed already vested will be instantly distributed, and the remainder will be streamed. Members will receive a share of this stream based on their share of the member units. If member units are updated during the vesting period, the streams will automatically adjust for each member.
+- this function only needs to be called once after the lockup has ended -- there is no need to claim repeatedly.
+
+#### Getting Vault Details
+
+The following view function can be used to fetch details of a vault.
+
+```solidity
+function allocation(
+    address token, 
+    address admin
+) external view returns (
+    address tokenAddress,
+    uint256 amountTotal,
+    uint256 amountClaimed,
+    uint256 lockupEndTime,
+    uint256 vestingEndTime,
+    address allocationAdmin,
+    address pool,
+    address box
+)
+```
+
+- the `lockupEndTime` and `vestingEndTime` can be used to display relevant dates, buttons, or other UI elements to users
