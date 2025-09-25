@@ -227,6 +227,7 @@ function claim(
 - if no vesting has been configured, tokens are instantly distributed to the members of the vault, according to their share of the member units
 - if vesting has been configured for the vault, any tokens deemed already vested will be instantly distributed, and the remainder will be streamed. Members will receive a share of this stream based on their share of the member units. If member units are updated during the vesting period, the streams will automatically adjust for each member.
 - this function only needs to be called once after the lockup has ended -- there is no need to claim repeatedly.
+- *Important:* since all distributions are done via a Superfluid GDA pool, members must connect to the GDA pool associated with the vault, in order for the tokens to show in their wallet balance. See `allocation()` view function below for how to fetch the pool address for the vault.
 
 #### Getting Vault Details
 
