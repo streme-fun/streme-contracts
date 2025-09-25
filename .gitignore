@@ -3,6 +3,7 @@ artifacts/*
 !artifacts/contracts/
 .DS_STORE
 ignition/deployments/
+test/v2deploy.js
 
 # Logs
 logs
