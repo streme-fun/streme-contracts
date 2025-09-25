@@ -47,7 +47,7 @@ const {
     var allocations;
 
   
-  describe.skip("Streme v2", function () {
+  describe("Streme v2", function () {
     // We define a fixture to reuse the same setup in every test.
     // We use loadFixture to run this setup once, snapshot that state,
     // and reset Hardhat Network to that snapshot in every test.
@@ -874,7 +874,7 @@ const {
         expect(canOpen).to.equal(false);
       });
 
-      it("should check that safety valve can be closed", async function() {
+      it.skip("should check that safety valve can be closed", async function() {
         // set timeout
         this.timeout(60000);
         const [other, signer] = await ethers.getSigners();
@@ -958,7 +958,7 @@ const {
         expect(units).to.equal(1);
       });
 
-      it("should check that safety valve cannot be closed", async function() {
+      it.skip("should check that safety valve cannot be closed", async function() {
         // set timeout
         this.timeout(60000);
         const [other, signer] = await ethers.getSigners();
@@ -970,7 +970,7 @@ const {
         expect(canClose).to.equal(false);
       });
 
-      it("should close the safety valve with MANAGER override", async function() {
+      it.skip("should close the safety valve with MANAGER override", async function() {
         // set timeout
         this.timeout(60000);
         const [other, signer] = await ethers.getSigners();
@@ -986,7 +986,7 @@ const {
         expect(locked).to.equal(true);
       });
 
-      it("should check the memberUnits of the StakingFactory contract after safety valve CLOSED", async function() {
+      it.skip("should check the memberUnits of the StakingFactory contract after safety valve CLOSED", async function() {
         // set timeout
         this.timeout(60000);
         const [signer] = await ethers.getSigners();

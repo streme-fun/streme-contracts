@@ -61,10 +61,8 @@ contract StremeStakingValve is AccessControl {
     IStremeLPFactory public lpFactory;
     IUniswapV3Factory public uniswapFactory;
     INonFungiblePositionManager public positionManager;
-    mapping(address => bool) public lockedValves;
 
     event ValveOpened(address indexed token);
-    event ValveClosed(address indexed token);
     event PercentSwappedOutUpdated(uint256 percent);
 
     constructor(ISTremeStakingFactory _stakingFactory, IStremeAllocationHook _allocationHook, IStremeLPFactory _lpFactory, IUniswapV3Factory _uniswapFactory, INonFungiblePositionManager _positionManager) {
@@ -81,26 +79,7 @@ contract StremeStakingValve is AccessControl {
         address stakedToken = stakingFactory.predictStakedTokenAddress(token);
         require(stakedToken != address(0), "Staked token not found");
         stakingFactory.updateMemberUnits(stakedToken, address(stakingFactory), 1);
-        if (hasRole(MANAGER_ROLE, msg.sender)) {
-            lockedValves[token] = true;
-        } else {
-            require(!lockedValves[token], "Valve is locked");
-        }
         emit ValveOpened(token);
-    }
-
-    function closeValve(address token) external {
-        require(hasRole(MANAGER_ROLE, msg.sender) || !_balanceThresholdMet(token), "Caller is not a manager or Balance threshold not met");
-        address stakedToken = stakingFactory.predictStakedTokenAddress(token);
-        require(stakedToken != address(0), "Staked token not found");
-        uint128 units = stakingFactory.valveUnits(token);
-        stakingFactory.updateMemberUnits(stakedToken, address(stakingFactory), units);
-        if (hasRole(MANAGER_ROLE, msg.sender)) {
-            lockedValves[token] = true;
-        } else {
-            require(!lockedValves[token], "Valve is locked");
-        }
-        emit ValveClosed(token);
     }
 
     function _balanceThresholdMet(address token) internal view returns (bool) {
@@ -123,17 +102,7 @@ contract StremeStakingValve is AccessControl {
         return (lpSupply * (100 - percentSwappedOut)) / 100;
     }
 
-    function canCloseValve(address token) external view returns (bool) {
-        if (lockedValves[token]) {
-            return false;
-        }
-        return !_balanceThresholdMet(token);
-    }
-
     function canOpenValve(address token) external view returns (bool) {
-        if (lockedValves[token]) {
-            return false;
-        }
         return _balanceThresholdMet(token);
     }
 
