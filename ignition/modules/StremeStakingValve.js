@@ -44,3 +44,4 @@ module.exports = buildModule("StremeStakingValveModule", (m) => {
 });
 
 // npx hardhat ignition deploy ignition/modules/StremeStakingValve.js --network base --deployment-id streme-staking-valve-one
+// npx hardhat ignition deploy ignition/modules/StremeStakingValve.js --network base --deployment-id streme-staking-valve-two
