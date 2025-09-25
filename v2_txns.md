@@ -227,7 +227,7 @@ function claim(
 - if no vesting has been configured, tokens are instantly distributed to the members of the vault, according to their share of the member units
 - if vesting has been configured for the vault, any tokens deemed already vested will be instantly distributed, and the remainder will be streamed. Members will receive a share of this stream based on their share of the member units. If member units are updated during the vesting period, the streams will automatically adjust for each member.
 - this function only needs to be called once after the lockup has ended -- there is no need to claim repeatedly.
-- *Important:* since all distributions are done via a Superfluid GDA pool, members must connect to the GDA pool associated with the vault, in order for the tokens to show in their wallet balance. See `allocation()` view function below for how to fetch the pool address for the vault.
+- *Important:* since all distributions are done via a Superfluid GDA pool, members (including the admin) must connect to the GDA pool associated with the vault, in order for the tokens to show in their wallet balance. See `allocation()` view function below for how to fetch the pool address for the vault. In cases where streaming/vesting is not configured, a call to `claimAll()` maybe be more appropriate ([link](https://docs.superfluid.org/docs/technical-reference/GDAv1Forwarder#fn-claimall))
 
 #### Getting Vault Details
 
@@ -250,3 +250,18 @@ function allocation(
 ```
 
 - the `lockupEndTime` and `vestingEndTime` can be used to display relevant dates, buttons, or other UI elements to users
+
+### Staking Rewards Delegation
+
+Staked tokens deployed via `STREME_STAKING_FACTORY_V2` support delegation of staking rewards to another address. The staked tokens remain in the wallet of the _staker_, but the reward stream is sent to the _delegate_.
+
+*Contract:* the `StakedTokenV2` contract for the streme coin ([source](contracts/hook/staking/StakedTokenV2.sol))
+
+*ABI:* [StakedTokenV2](artifacts/contracts/hook/staking/StakedTokenV2.sol/StakedTokenV2.json)
+
+```solidity
+function delegate(
+    address to
+) external
+```
+- `to` is the address that should receive the streaming staking rewards
