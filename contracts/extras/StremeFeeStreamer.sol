@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-
 interface IGDAv1Forwarder {
     function distributeFlow(address superTokenAddress, address from, address poolAddress, int96 requestedFlowRate, bytes calldata userData) external returns (bool);
 }
@@ -32,6 +31,10 @@ interface IStremeZap {
     function zap(address stremeCoin, uint256 amountIn, uint256 amountOutMin, address stakingContract) external payable returns (uint256 amountOut);
 }
 
+interface IStremeLPFactory {
+    function claimRewards(address token) external;
+}
+
 contract StremeFeeStreamer is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE"); // contract owner/manager
     // GDA Forwarder
@@ -39,20 +42,23 @@ contract StremeFeeStreamer is AccessControl {
     int96 public flowDuration = 365 days;
     uint256 feeRecipientPercentage = 50; // percentage of pairing tokens sent to fee recipient
     uint256 public swapThreshold = 0.1 ether; // threshold of eth to trigger a swap
+    uint256 public streamThreshold = 1_000_000 ether; // threshold of tokens to trigger a stream update
     IStremeZap public zapContract; // Streme Zap contract on Base
     address public feeRecipient;
     mapping(address => address) public stakingContracts; // maps token address to staking contract address
     address[] public stakingFactories;
+    address public defaultLpFactory; // default LP factory to claim rewards from
     IWETH public constant WETH = IWETH(0x4200000000000000000000000000000000000006);
     ISETH public constant ETHx = ISETH(0x46fd5cfB4c12D87acD3a13e92BAa53240C661D93);
     IERC20 public constant STREME = IERC20(0x3B3Cd21242BA44e9865B066e5EF5d1cC1030CC58);
 
-    constructor(IGDAv1Forwarder _gdaForwarder, address _feeRecipient, IStremeZap _zapContract) {
+    constructor(IGDAv1Forwarder _gdaForwarder, address _feeRecipient, IStremeZap _zapContract, address _defaultLpFactory) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         gdaForwarder = _gdaForwarder;
         feeRecipient = _feeRecipient;
         zapContract = _zapContract;
+        defaultLpFactory = _defaultLpFactory;
         stakingContracts[0x3B3Cd21242BA44e9865B066e5EF5d1cC1030CC58] = 0x93419F1C0F73b278C73085C17407794A6580dEff; // $STREME
         stakingContracts[0x31c3CFb1B8332369c2D84220c950001c87A84c09] = 0x291C99235270Ea41499F243B1a8a43ad5c62E28c; // $IBET
         stakingContracts[0x14f80AA2db36d8E69E4BA9feE32795A73a71a2f5] = 0x5A4Aa653B98FF91923d1c20797e698cc0Ed66108; // $LORD
@@ -63,25 +69,22 @@ contract StremeFeeStreamer is AccessControl {
         stakingFactories.push(0x293A5d47f5D76244b715ce0D0e759E0227349486); // StremeStakingFactoryV1
     }
 
-    function tokensReceived(
-        address /*operator*/,
-        address /*from*/,
-        address to,
-        uint256 amount,
-        bytes calldata /*userData*/,
-        bytes calldata /*operatorData*/
-    ) external override {
-        require(to == address(this), "Tokens must be sent to this contract");
-        require(amount > 0, "Amount must be greater than zero");
+    function poolStream(address token) external {
+        _tokensReceived(token);
+    }
+
+    function _tokensReceived(
+        address token
+    ) internal {
         // check for WETH or ETHx pairing token:
-        if (msg.sender == address(WETH) || msg.sender == address(ETHx)) {
+        if (token == address(WETH) || token == address(ETHx)) {
             return; // do nothing
         }
-        address stakingContract = _stakedToken(msg.sender);
+        address stakingContract = _stakedToken(token);
         if (stakingContract != address(0)) {
             IStremeStakedToken stakedToken = IStremeStakedToken(stakingContract);
-            int96 flowRate = int96(int256(IERC20(msg.sender).balanceOf(address(this)) / uint256(uint96(flowDuration))));
-            gdaForwarder.distributeFlow(msg.sender, address(this), stakedToken.pool(), flowRate, "");
+            int96 flowRate = int96(int256(IERC20(token).balanceOf(address(this)) / uint256(uint96(flowDuration))));
+            gdaForwarder.distributeFlow(token, address(this), stakedToken.pool(), flowRate, "");
         }
         _handlePairingTokens();
     }
@@ -117,6 +120,23 @@ contract StremeFeeStreamer is AccessControl {
         if (ethBalance > swapThreshold) {
             // @dev: swap ETH for $STREME via Streme Zap contract
             zapContract.zap{value: ethBalance}(address(STREME), ethBalance, 0, address(0));
+        }
+    }
+
+    function claimRewards(address token) external {
+        _claimRewards(token, defaultLpFactory);
+    }
+
+    function claimRewardsViaLpFactory(address token, address lpFactory) external {
+        _claimRewards(token, lpFactory);
+    }
+
+    function _claimRewards(address token, address lpFactory) internal {
+        uint256 balanceBefore = IERC20(token).balanceOf(address(this));
+        IStremeLPFactory(lpFactory).claimRewards(token);
+        uint256 balanceAfter = IERC20(token).balanceOf(address(this));
+        if (balanceAfter - balanceBefore > streamThreshold) {
+            _tokensReceived(token);
         }
     }
 
@@ -163,10 +183,19 @@ contract StremeFeeStreamer is AccessControl {
         swapThreshold = _swapThreshold;
     }
 
+    function setStreamThreshold(uint256 _streamThreshold) external onlyRole(MANAGER_ROLE) {
+        streamThreshold = _streamThreshold;
+    }
+
+    function setDefaultLpFactory(address lpFactory) external onlyRole(MANAGER_ROLE) {
+        defaultLpFactory = lpFactory;
+    }
+
     function setZapContract(IStremeZap _zapContract) external onlyRole(MANAGER_ROLE) {
         zapContract = _zapContract;
     }
 
+    // @dev emergency withdraw ERC20 tokens
     function withdraw(IERC20 token, address recipient, uint256 amount) external onlyRole(MANAGER_ROLE) {
         require(recipient != address(0), "Invalid recipient address");
         require(amount > 0, "Amount must be greater than zero");
@@ -174,6 +203,12 @@ contract StremeFeeStreamer is AccessControl {
 
         bool success = token.transfer(recipient, amount);
         require(success, "Token transfer failed");
+    }
+
+    // @dev emergency withdraw ETH
+    function withdrawETH() external onlyRole(MANAGER_ROLE) {
+        (bool success, ) = feeRecipient.call{value: address(this).balance}("");
+        require(success, "ETH transfer failed");
     }
 
     receive() external payable {
