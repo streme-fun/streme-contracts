@@ -4,21 +4,6 @@ pragma solidity ^0.8.25;
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-interface IERC1820Registry {
-    function setInterfaceImplementer(address account, bytes32 _interfaceHash, address implementer) external;
-    function getInterfaceImplementer(address account, bytes32 _interfaceHash) external view returns (address);
-}
-
-interface ERC777Receiver {
-    function tokensReceived(
-        address operator,
-        address from,
-        address to,
-        uint256 amount,
-        bytes calldata userData,
-        bytes calldata operatorData
-    ) external;
-}
 
 interface IGDAv1Forwarder {
     function distributeFlow(address superTokenAddress, address from, address poolAddress, int96 requestedFlowRate, bytes calldata userData) external returns (bool);
@@ -47,11 +32,8 @@ interface IStremeZap {
     function zap(address stremeCoin, uint256 amountIn, uint256 amountOutMin, address stakingContract) external payable returns (uint256 amountOut);
 }
 
-contract StremeFeeStreamer is ERC777Receiver, AccessControl {
+contract StremeFeeStreamer is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE"); // contract owner/manager
-    IERC1820Registry private _erc1820 = IERC1820Registry(0x1820a4B7618BdE71Dce8cdc73aAB6C95905faD24);
-    // Interface hash for ERC777TokensRecipient
-    bytes32 private constant TOKENS_RECIPIENT_INTERFACE_HASH = keccak256("ERC777TokensRecipient");
     // GDA Forwarder
     IGDAv1Forwarder public gdaForwarder;
     int96 public flowDuration = 365 days;
@@ -71,7 +53,6 @@ contract StremeFeeStreamer is ERC777Receiver, AccessControl {
         gdaForwarder = _gdaForwarder;
         feeRecipient = _feeRecipient;
         zapContract = _zapContract;
-        _erc1820.setInterfaceImplementer(address(this), TOKENS_RECIPIENT_INTERFACE_HASH, address(this));
         stakingContracts[0x3B3Cd21242BA44e9865B066e5EF5d1cC1030CC58] = 0x93419F1C0F73b278C73085C17407794A6580dEff; // $STREME
         stakingContracts[0x31c3CFb1B8332369c2D84220c950001c87A84c09] = 0x291C99235270Ea41499F243B1a8a43ad5c62E28c; // $IBET
         stakingContracts[0x14f80AA2db36d8E69E4BA9feE32795A73a71a2f5] = 0x5A4Aa653B98FF91923d1c20797e698cc0Ed66108; // $LORD
