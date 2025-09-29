@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+// import hardhat/console.sol:
+import "hardhat/console.sol";
+
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -46,6 +49,7 @@ contract StremeFeeStreamer is AccessControl {
     IStremeZap public zapContract; // Streme Zap contract on Base
     address public feeRecipient;
     mapping(address => address) public stakingContracts; // maps token address to staking contract address
+    mapping(address => uint256) public lastStreamed; // maps token address to last streamed amount
     address[] public stakingFactories;
     address public defaultLpFactory; // default LP factory to claim rewards from
     IWETH public constant WETH = IWETH(0x4200000000000000000000000000000000000006);
@@ -71,6 +75,7 @@ contract StremeFeeStreamer is AccessControl {
 
     function poolStream(address token) external {
         _tokensReceived(token);
+        _handlePairingTokens();
     }
 
     function _tokensReceived(
@@ -80,13 +85,17 @@ contract StremeFeeStreamer is AccessControl {
         if (token == address(WETH) || token == address(ETHx)) {
             return; // do nothing
         }
+        console.log("Tokens received for token:", token);
         address stakingContract = _stakedToken(token);
+        console.log("Staking contract for token:", token, " is:", stakingContract);
         if (stakingContract != address(0)) {
             IStremeStakedToken stakedToken = IStremeStakedToken(stakingContract);
             int96 flowRate = int96(int256(IERC20(token).balanceOf(address(this)) / uint256(uint96(flowDuration))));
+            console.log("Flow rate for token:", token, " is:");
+            console.logInt(flowRate);
+            console.log("to staking pool", stakedToken.pool());
             gdaForwarder.distributeFlow(token, address(this), stakedToken.pool(), flowRate, "");
         }
-        _handlePairingTokens();
     }
 
     function _handlePairingTokens() internal {
@@ -124,6 +133,7 @@ contract StremeFeeStreamer is AccessControl {
     }
 
     function claimRewards(address token) external {
+        console.log("Claiming rewards for token:", token);
         _claimRewards(token, defaultLpFactory);
     }
 
@@ -132,30 +142,36 @@ contract StremeFeeStreamer is AccessControl {
     }
 
     function _claimRewards(address token, address lpFactory) internal {
-        uint256 balanceBefore = IERC20(token).balanceOf(address(this));
         IStremeLPFactory(lpFactory).claimRewards(token);
         uint256 balanceAfter = IERC20(token).balanceOf(address(this));
-        if (balanceAfter - balanceBefore > streamThreshold) {
+        console.log("Previous balance:", lastStreamed[token]);
+        console.log("Current balance:", balanceAfter);
+        if (balanceAfter - lastStreamed[token] > streamThreshold) {
+            console.log("Streaming new balance for token:", token);
             _tokensReceived(token);
+            lastStreamed[token] = balanceAfter;
         }
+        _handlePairingTokens();
     }
 
     function _stakedToken(address token) internal view returns (address stakedTokenAddress) {
         stakedTokenAddress = stakingContracts[token];
+        console.log("Staked token from mapping for token:", token, " is:", stakedTokenAddress);
         if (stakedTokenAddress == address(0)) {
             for (uint i = 0; i < stakingFactories.length; i++) {
+                console.log("Checking staking factory:", stakingFactories[i]);
                 IStremeStakingFactory factory = IStremeStakingFactory(stakingFactories[i]);
-                IStremeStakedToken stakedToken = IStremeStakedToken(factory.predictStakedTokenAddress(token));
-                try stakedToken.pool() returns (address pool) {
-                    if (pool != address(0)) {
-                        stakedTokenAddress = address(stakedToken);
-                        break;
-                    }
-                } catch {
-                    // do nothing
+                address predictedStakedTokenAddress = factory.predictStakedTokenAddress(token);
+                console.log("Predicted staked token address:", predictedStakedTokenAddress);
+                if (predictedStakedTokenAddress.code.length != 0) {
+                    console.log("Is contract! Checking pool for staked token:", address(predictedStakedTokenAddress));
+                    stakedTokenAddress = address(predictedStakedTokenAddress);
+                    console.log("Staked token address code length:", stakedTokenAddress.code.length);
+                    break;
                 }
             }
         }
+        console.log("Final staked token address for token:", token, " is:", stakedTokenAddress);
     }
     function predictStakedTokenAddress(address token) external view returns (address stakedTokenAddress) {
         stakedTokenAddress = _stakedToken(token);
