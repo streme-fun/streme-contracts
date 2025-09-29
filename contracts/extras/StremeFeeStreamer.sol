@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-// import hardhat/console.sol:
-import "hardhat/console.sol";
-
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -85,15 +82,10 @@ contract StremeFeeStreamer is AccessControl {
         if (token == address(WETH) || token == address(ETHx)) {
             return; // do nothing
         }
-        console.log("Tokens received for token:", token);
         address stakingContract = _stakedToken(token);
-        console.log("Staking contract for token:", token, " is:", stakingContract);
         if (stakingContract != address(0)) {
             IStremeStakedToken stakedToken = IStremeStakedToken(stakingContract);
             int96 flowRate = int96(int256(IERC20(token).balanceOf(address(this)) / uint256(uint96(flowDuration))));
-            console.log("Flow rate for token:", token, " is:");
-            console.logInt(flowRate);
-            console.log("to staking pool", stakedToken.pool());
             gdaForwarder.distributeFlow(token, address(this), stakedToken.pool(), flowRate, "");
         }
     }
@@ -133,7 +125,6 @@ contract StremeFeeStreamer is AccessControl {
     }
 
     function claimRewards(address token) external {
-        console.log("Claiming rewards for token:", token);
         _claimRewards(token, defaultLpFactory);
     }
 
@@ -144,10 +135,7 @@ contract StremeFeeStreamer is AccessControl {
     function _claimRewards(address token, address lpFactory) internal {
         IStremeLPFactory(lpFactory).claimRewards(token);
         uint256 balanceAfter = IERC20(token).balanceOf(address(this));
-        console.log("Previous balance:", lastStreamed[token]);
-        console.log("Current balance:", balanceAfter);
         if (balanceAfter - lastStreamed[token] > streamThreshold) {
-            console.log("Streaming new balance for token:", token);
             _tokensReceived(token);
             lastStreamed[token] = balanceAfter;
         }
@@ -156,23 +144,18 @@ contract StremeFeeStreamer is AccessControl {
 
     function _stakedToken(address token) internal view returns (address stakedTokenAddress) {
         stakedTokenAddress = stakingContracts[token];
-        console.log("Staked token from mapping for token:", token, " is:", stakedTokenAddress);
         if (stakedTokenAddress == address(0)) {
             for (uint i = 0; i < stakingFactories.length; i++) {
-                console.log("Checking staking factory:", stakingFactories[i]);
                 IStremeStakingFactory factory = IStremeStakingFactory(stakingFactories[i]);
                 address predictedStakedTokenAddress = factory.predictStakedTokenAddress(token);
-                console.log("Predicted staked token address:", predictedStakedTokenAddress);
                 if (predictedStakedTokenAddress.code.length != 0) {
-                    console.log("Is contract! Checking pool for staked token:", address(predictedStakedTokenAddress));
                     stakedTokenAddress = address(predictedStakedTokenAddress);
-                    console.log("Staked token address code length:", stakedTokenAddress.code.length);
                     break;
                 }
             }
         }
-        console.log("Final staked token address for token:", token, " is:", stakedTokenAddress);
     }
+
     function predictStakedTokenAddress(address token) external view returns (address stakedTokenAddress) {
         stakedTokenAddress = _stakedToken(token);
     }
@@ -212,12 +195,8 @@ contract StremeFeeStreamer is AccessControl {
     }
 
     // @dev emergency withdraw ERC20 tokens
-    function withdraw(IERC20 token, address recipient, uint256 amount) external onlyRole(MANAGER_ROLE) {
-        require(recipient != address(0), "Invalid recipient address");
-        require(amount > 0, "Amount must be greater than zero");
-        require(token.balanceOf(address(this)) >= amount, "Insufficient token balance");
-
-        bool success = token.transfer(recipient, amount);
+    function withdraw(IERC20 token) external onlyRole(MANAGER_ROLE) {
+        bool success = token.transfer(feeRecipient, token.balanceOf(address(this)));
         require(success, "Token transfer failed");
     }
 
