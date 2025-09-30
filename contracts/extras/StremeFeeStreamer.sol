@@ -53,6 +53,9 @@ contract StremeFeeStreamer is AccessControl {
     ISETH public constant ETHx = ISETH(0x46fd5cfB4c12D87acD3a13e92BAa53240C661D93);
     IERC20 public constant STREME = IERC20(0x3B3Cd21242BA44e9865B066e5EF5d1cC1030CC58);
 
+    event BuyBack(address token, uint256 amountIn, uint256 amountOut);
+    event StreamUpdated(address token, int96 flowRate);
+
     constructor(IGDAv1Forwarder _gdaForwarder, address _feeRecipient, IStremeZap _zapContract, address _defaultLpFactory) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
@@ -87,6 +90,7 @@ contract StremeFeeStreamer is AccessControl {
             IStremeStakedToken stakedToken = IStremeStakedToken(stakingContract);
             int96 flowRate = int96(int256(IERC20(token).balanceOf(address(this)) / uint256(uint96(flowDuration))));
             gdaForwarder.distributeFlow(token, address(this), stakedToken.pool(), flowRate, "");
+            emit StreamUpdated(token, flowRate);
         }
     }
 
@@ -120,7 +124,8 @@ contract StremeFeeStreamer is AccessControl {
         uint256 ethBalance = address(this).balance;
         if (ethBalance > swapThreshold) {
             // @dev: swap ETH for $STREME via Streme Zap contract
-            zapContract.zap{value: ethBalance}(address(STREME), ethBalance, 0, address(0));
+            uint256 stremeAmount = zapContract.zap{value: ethBalance}(address(STREME), ethBalance, 0, address(0));
+            emit BuyBack(address(STREME), ethBalance, stremeAmount);
         }
     }
 
