@@ -275,7 +275,7 @@ The Staking Safety Valve is is closed (enabled) by default for newly deployed to
 
 *ABI:* [StremeStakingValve.json](artifacts/contracts/extras/StremeStakingValve.sol/StremeStakingValve.json)
 
-## Check if valve can be opened
+#### Check if valve can be opened
 
 ```solidity
 function canOpenValve(
@@ -284,7 +284,7 @@ function canOpenValve(
 ```
 - `token` is the address of the Streme coin (_not_ the staked token)
 
-## Open the valve
+#### Open the valve
 
 ```solidity
 function openValve(
