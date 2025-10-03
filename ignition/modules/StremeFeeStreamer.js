@@ -33,4 +33,4 @@ module.exports = buildModule("StremeFeeStreamerModule", (m) => {
   return { feeStreamer };
 });
 
-// npx hardhat ignition deploy ignition/modules/StremeFeeStreamer.js --network base --deployment-id streamer-base-one
+// npx hardhat ignition deploy ignition/modules/StremeFeeStreamer.js --network base --deployment-id streamer-base-new-one
