@@ -36,9 +36,12 @@ const {
         addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
         addr.uniswapV3Factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"; 
         addr.uniswapV3PositionManager = "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1";
+        addr.swapRouter = "0x2626664c2603336E57B271c5C0b26F421741e481"; 
         addr.protocolFactory = "0xe20B9a38E0c96F61d1bA6b42a61512D56Fea1Eb3"; // SuperTokenFactory on base chain
         addr.protocolSuperTokenFactory = process.env.SUPER_TOKEN_FACTORY;
         addr.stremeZap = process.env.STREME_ZAP;
+        addr.weth = "0x4200000000000000000000000000000000000006"; 
+        addr.ethx = "0x46fd5cfB4c12D87acD3a13e92BAa53240C661D93";
     } else {
         console.log("chain not supported");
         return;
@@ -47,7 +50,7 @@ const {
     var allocations;
 
   
-  describe.skip("Streme v2", function () {
+  describe("Streme v2", function () {
     // We define a fixture to reuse the same setup in every test.
     // We use loadFixture to run this setup once, snapshot that state,
     // and reset Hardhat Network to that snapshot in every test.
@@ -140,6 +143,18 @@ const {
         console.log("SuperTokenFactoryV2 deployed to: ", superTokenFactory.target);
         addr.tokenFactory = superTokenFactory.target;
         expect(addr.tokenFactory).to.not.be.undefined;
+      }); // end it
+
+      it("should deploy StremeZap", async function () {
+        // set timeout
+        this.timeout(60000);
+        const stremeZapJSON = require("../artifacts/contracts/StremeZap.sol/StremeZap.json");
+        const [signer] = await ethers.getSigners();
+        const StremeZap = await ethers.getContractFactory("StremeZap", signer);
+        const stremeZap = await StremeZap.deploy(addr.swapRouter, addr.weth, addr.ethx);
+        console.log("StremeZap deployed to: ", stremeZap.target);
+        addr.stremeZap = stremeZap.target;
+        expect(addr.stremeZap).to.not.be.undefined;
       }); // end it
 
       it("should grant DEPLOYER_ROLE to StremeDeployV2 on Streme contract", async function () {
@@ -1498,6 +1513,27 @@ const {
 
         expect(tokenAddress).to.not.be.empty;
       }); // end it
+
+      it("should BUY 1 ETHx work of token from uniswap v3 pool", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer] = await ethers.getSigners();
+        // buy using StremeZap
+        const stremeZapJSON = require("../artifacts/contracts/StremeZap.sol/StremeZap.json");
+        const stremeZap = new ethers.Contract(addr.stremeZap, stremeZapJSON.abi, signer);
+        const buyAmount = ethers.parseEther("1"); // 1 ETH
+        const tx = await stremeZap.zapETHx(addr.tokenAddress, buyAmount, 0, ethers.ZeroAddress, { value: buyAmount });
+        console.log("Zap tx: ", tx.hash);
+        await tx.wait();
+        console.log("Zap tx mined");
+        // check balance of tokenAddress for signer
+        const token = new ethers.Contract(addr.tokenAddress, [
+          "function balanceOf(address owner) view returns (uint256)"
+        ], signer);
+        const balance = await token.balanceOf(signer.address);
+        console.log("Signer balance: ", balance.toString());
+        expect(balance).to.be.gt(0);
+      });
 
       it("should deploy a token with ONLY staking", async function () {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
