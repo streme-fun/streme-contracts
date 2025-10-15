@@ -269,7 +269,7 @@ function delegate(
 
 ### Streme Staking Valve
 
-The Staking Safety Valve is is closed (enabled) by default for newly deployed tokens. It can be closed by anyone if the liquidity threshold has been met.
+The Staking Safety Valve is is closed (enabled) by default for newly deployed tokens. It can be opend by anyone if the liquidity threshold has been met.
 
 *Contract:* `STREME_STAKING_VALVE` ([source](contracts/extras/StremeStakingValve.sol))
 
