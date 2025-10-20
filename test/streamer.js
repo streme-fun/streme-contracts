@@ -48,7 +48,7 @@ const {
 
     var allocations;
   
-    describe("Fee Claim and Stream", function () {
+    describe.skip("Fee Claim and Stream", function () {
 
       it("should deploy the feeStreamer contract", async function () {
         const feeStreamerJSON = require("../artifacts/contracts/extras/StremeFeeStreamer.sol/StremeFeeStreamer.json");

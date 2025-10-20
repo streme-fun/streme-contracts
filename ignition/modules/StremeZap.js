@@ -31,4 +31,4 @@ module.exports = buildModule("StremeZapModule", (m) => {
   return {  zap };
 });
 
-// npx hardhat ignition deploy ignition/modules/StremeZap.js --network base --deployment-id zap-base-two
+// npx hardhat ignition deploy ignition/modules/StremeZap.js --network base --deployment-id zap-base-v2-two
