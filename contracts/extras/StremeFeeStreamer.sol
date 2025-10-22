@@ -140,9 +140,11 @@ contract StremeFeeStreamer is AccessControl {
     function _claimRewards(address token, address lpFactory) internal {
         IStremeLPFactory(lpFactory).claimRewards(token);
         uint256 balanceAfter = IERC20(token).balanceOf(address(this));
-        if (balanceAfter - lastStreamed[token] > streamThreshold) {
-            _tokensReceived(token);
-            lastStreamed[token] = balanceAfter;
+        if (balanceAfter > lastStreamed[token]) {
+            if (balanceAfter - lastStreamed[token] > streamThreshold) {
+                _tokensReceived(token);
+                lastStreamed[token] = balanceAfter;
+            }
         }
         _handlePairingTokens();
     }
