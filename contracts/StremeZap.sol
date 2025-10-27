@@ -22,6 +22,12 @@ interface IWETH9 is IERC20 {
     function withdraw(uint256 wad) external;
 }
 
+interface ISETH is IERC20 {
+    function upgradeByETH() external payable;
+    function upgradeByETHTo(address to) external payable;
+    function downgradeToETH(uint wad) external;
+}
+
 interface IStremeStaking {
     function stake(address to, uint256 amount) external;
 }
@@ -29,11 +35,14 @@ interface IStremeStaking {
 contract StremeZap {
     ISwapRouter public immutable swapRouter;
     address public weth;
+    address public ethx;
     uint24 public constant poolFee = 10000;
 
-    constructor(ISwapRouter _swapRouter, address _weth) {
+    constructor(ISwapRouter _swapRouter, address _weth, address _ethx) {
         swapRouter = _swapRouter;
         weth = _weth;
+        ethx = _ethx;
+        ISETH(ethx).approve(address(swapRouter), type(uint256).max);
     }
 
     function zap(address stremeCoin, uint256 amountIn, uint256 amountOutMin, address stakingContract) external payable returns (uint256 amountOut) {
@@ -53,6 +62,32 @@ contract StremeZap {
             });
 
         amountOut = swapRouter.exactInputSingle{value: msg.value}(params);
+
+        if (stakingContract != address(0)) {
+            // approve the staking contract to spend the amountOut:
+            IERC20(stremeCoin).approve(stakingContract, amountOut);
+            IStremeStaking(stakingContract).stake(msg.sender, amountOut);
+        }
+    }
+
+    function zapETHx(address stremeCoin, uint256 amountIn, uint256 amountOutMin, address stakingContract) external payable returns (uint256 amountOut) {
+        require(msg.value == amountIn, "msg.value must be equal to amountIn");
+        ISETH(ethx).upgradeByETH{value: msg.value}();
+
+        address recipient = (stakingContract != address(0)) ? address(this) : msg.sender;
+
+        ISwapRouter.ExactInputSingleParams memory params =
+            ISwapRouter.ExactInputSingleParams({
+                tokenIn: ethx,
+                tokenOut: stremeCoin,
+                fee: poolFee,
+                recipient: recipient,
+                amountIn: amountIn,
+                amountOutMinimum: amountOutMin,
+                sqrtPriceLimitX96: 0
+            });
+
+        amountOut = swapRouter.exactInputSingle(params);
 
         if (stakingContract != address(0)) {
             // approve the staking contract to spend the amountOut:

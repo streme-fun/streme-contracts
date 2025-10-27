@@ -12,18 +12,12 @@ interface IDistributionPool {
     function updateMemberUnits(address memberAddr, uint128 newUnits) external returns (bool);
 }
 
-interface IStremeEvents {
-    function emitStake(address token, address account, uint256 depositTimestamp, uint256 amount) external;
-    function emitUnstake(address token, address account, uint256 depositTimestamp, uint256 amount) external;
-}
-
 contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     IERC20 public stakeableToken;
     mapping(address account => uint256) public depositTimestamps;
     IDistributionPool public pool;
     uint256 public unitDecimals;
-    address public stremeEvents;
 
     /**
      * @dev Lock duration in seconds, period starts after the deposit timestamp
@@ -66,8 +60,7 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         address _stakeableToken, 
         address _pool, 
         uint256 _lockDuration,
-        address _teamRecipient,
-        address _stremeEvents
+        address _teamRecipient
     ) initializer public {
         __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
@@ -81,7 +74,6 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         unitDecimals = 18;
         // @dev make sure there is always at least one unit
         pool.updateMemberUnits(_teamRecipient, 1);
-        stremeEvents = _stremeEvents;
     }
 
     function stake(address to, uint256 amount) external nonReentrant {
@@ -89,14 +81,12 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
         _mint(to, amount);
         depositTimestamps[to] = block.timestamp;
         emit Deposit(to, block.timestamp, amount);
-        IStremeEvents(stremeEvents).emitStake(address(stakeableToken), to, block.timestamp, amount);
     }
 
     function unstake(address to, uint256 amount) external nonReentrant {
         _burn(msg.sender, amount);
         stakeableToken.transfer(to, amount);  // Transfer the stakable token back to the user
         emit Withdraw(msg.sender, depositTimestamps[msg.sender], amount);
-        IStremeEvents(stremeEvents).emitUnstake(address(stakeableToken), msg.sender, depositTimestamps[msg.sender], amount);
     }
 
     function unlockDate(address account) external view returns (uint256) {
@@ -121,10 +111,6 @@ contract StakedToken is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGu
 
     function setUnitDecimals(uint256 _unitDecimals) external onlyRole(MANAGER_ROLE) {
         unitDecimals = _unitDecimals;
-    }
-
-    function setStremeEvents(address _stremeEvents) external onlyRole(MANAGER_ROLE) {
-        stremeEvents = _stremeEvents;
     }
 
     function updateMemberUnits(address memberAddr, uint128 newUnits) external onlyRole(MANAGER_ROLE) {

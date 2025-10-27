@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "UUPSUtils",
+  "sourceName": "contracts/token/superfluid/interfaces/UUPSUtils.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea264697066735822122078dc56d2dc05bcdc25798acb1d4ecd2385d72ea51ffc8a42f4929e149166872f64736f6c634300081a0033",
+  "deployedBytecode": "0x600080fdfea264697066735822122078dc56d2dc05bcdc25798acb1d4ecd2385d72ea51ffc8a42f4929e149166872f64736f6c634300081a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

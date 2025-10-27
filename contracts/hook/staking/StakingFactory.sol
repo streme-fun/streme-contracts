@@ -32,13 +32,8 @@ interface IStakedToken {
         address _stakeableToken, 
         address _pool, 
         uint256 _lockDuration,
-        address _teamRecipient,
-        address _stremeEvents
+        address _teamRecipient
     ) external;
-}
-
-interface IStremeEvents {
-    function registerEmitter(address emitter) external;
 }
 
 contract StakingFactory is AccessControl {
@@ -51,7 +46,6 @@ contract StakingFactory is AccessControl {
     int96 public flowDuration = 365 days;
     uint256 public lockDuration = 1 days;
     address public teamRecipient;
-    address public stremeEvents;
 
     event StakedTokenCreated(address stakeToken, address depositToken, address pool);
     /**
@@ -59,13 +53,12 @@ contract StakingFactory is AccessControl {
      */
     event LockDurationUpdated(uint256 duration);
 
-    constructor(IGDAv1Forwarder _gda, address _stakedTokenImplementation, address _teamRecipient, address _stremeEvents) {
+    constructor(IGDAv1Forwarder _gda, address _stakedTokenImplementation, address _teamRecipient) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
         gda = _gda;
         stakedTokenImplementation = _stakedTokenImplementation;
         teamRecipient = _teamRecipient;
-        stremeEvents = _stremeEvents;
     }
 
     function hook(
@@ -86,7 +79,7 @@ contract StakingFactory is AccessControl {
         // @dev 3. Initialize the staked token
         string memory name = string(abi.encodePacked("Staked ", IERC20(stakeableToken).name()));
         string memory symbol = string(abi.encodePacked("st", IERC20(stakeableToken).symbol()));
-        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration, teamRecipient, stremeEvents);
+        IStakedToken(stakedToken).initialize(admin, name, symbol, stakeableToken, pool, lockDuration, teamRecipient);
 
         // @dev 4. Transfer reward amount to this contract
         uint256 allowance = IERC20(stakeableToken).allowance(msg.sender, address(this));
@@ -97,9 +90,6 @@ contract StakingFactory is AccessControl {
         int96 flowRate = int96(uint96(amount)) / flowDuration;
         gda.distributeFlow(stakeableToken, address(this), pool, flowRate, "");
         emit StakedTokenCreated(stakedToken, stakeableToken, pool);
-
-        // @dev 6. Register the staked token as an emitter
-        IStremeEvents(stremeEvents).registerEmitter(stakedToken);
 
         return stakedToken;
     }
@@ -128,10 +118,6 @@ contract StakingFactory is AccessControl {
 
     function setStakedTokenImplementation(address _stakedTokenImplementation) external onlyRole(MANAGER_ROLE) {
         stakedTokenImplementation = _stakedTokenImplementation;
-    }
-
-    function setStremeEvents(address _stremeEvents) external onlyRole(MANAGER_ROLE) {
-        stremeEvents = _stremeEvents;
     }
     
 }
