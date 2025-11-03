@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IDistributionPool",
-  "sourceName": "contracts/hook/staking/StakedTokenV2.sol",
+  "sourceName": "contracts/hook/staking/StakedTokenv2.sol",
   "abi": [
     {
       "inputs": [
