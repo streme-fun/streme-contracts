@@ -21,6 +21,12 @@ interface IStremeVault {
         uint256 lockupDuration,
         uint256 vestingDuration
     ) external;
+    function updateMemberUnits(
+        address token,
+        address admin,
+        address member,
+        uint128 newUnits
+    ) external;
     function updateMemberUnitsBatch(
         address token,
         address admin,
@@ -114,6 +120,18 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
         require(amount > 0, "Amount must be greater than zero");
         require(deposits[msg.sender] >= amount, "Insufficient balance");
         deposits[msg.sender] -= amount;
+        // new balace must be greater than or equal to minDeposit
+        require(deposits[msg.sender] == 0 || deposits[msg.sender] >= preBuySettings.minDeposit, "Balance must be gte minDeposit or zero");
+        if (deposits[msg.sender] == 0) {
+            // remove depositor from list
+            for (uint i = 0; i < depositors.length; i++) {
+                if (depositors[i] == msg.sender) {
+                    depositors[i] = depositors[depositors.length - 1];
+                    depositors.pop();
+                    break;
+                }
+            }
+        }
         payable(msg.sender).transfer(amount);
         emit Withdraw(msg.sender, amount);
     }
@@ -130,6 +148,9 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
         uint256 tokenBalance = stremeCoin.balanceOf(address(this));
         require(tokenBalance >= tokensReceived, "Insufficient tokens received");
 
+        // approve stremeVault to spend tokens
+        stremeCoin.approve(address(stremeVault), tokenBalance);
+
         // create vault for pre-buy participants
         stremeVault.createVault(
             address(stremeCoin),
@@ -145,7 +166,7 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
         for (uint i = 0; i < depositors.length; i++) {
             address user = depositors[i];
             uint256 userDeposit = deposits[user];
-            units[i] = _units(userDeposit);
+            units[i] = uint128(userDeposit);
             // zero out deposit to prevent re-entrancy issues
             deposits[user] = 0;
         }
@@ -158,6 +179,14 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
             units
         );
 
+        // remove unit from admin (this contract)
+        stremeVault.updateMemberUnits(
+            address(stremeCoin),
+            address(this),
+            address(this),
+            0
+        );
+
         emit PreBuyFinalized(ethBalance, tokenBalance);
     }
 
@@ -166,7 +195,7 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
         for (uint i = 0; i < depositors.length; i++) {
             address user = depositors[i];
             uint256 userDeposit = deposits[user];
-            units[i] = _units(userDeposit);
+            units[i] = uint128(userDeposit);
         }
         return (depositors, units);
     }
@@ -186,10 +215,6 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
      */
     function totalBalance() external view returns (uint256) {
         return address(this).balance;
-    }
-
-    function _units(uint256 amount) internal pure returns (uint128) {
-        return uint128(amount / (10 ** 18));
     }
 
     /**

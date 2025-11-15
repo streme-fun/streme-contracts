@@ -25,6 +25,8 @@ contract StremePreBuyFactory is AccessControl {
     IStremePreBuyETH public implementation;
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
+    event PreBuyCreated(address indexed token, address preBuyAddress, address admin);
+
     constructor(IStremePreBuyETH _implementation) {
         implementation = _implementation;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -38,6 +40,7 @@ contract StremePreBuyFactory is AccessControl {
     ) external returns (IStremePreBuyETH) {
         IStremePreBuyETH clone = IStremePreBuyETH(Clones.clone(address(implementation)));
         clone.initialize(_token, _preBuySettings, _admin);
+        emit PreBuyCreated(_token, address(clone), _admin);
         return clone;
     }
 
