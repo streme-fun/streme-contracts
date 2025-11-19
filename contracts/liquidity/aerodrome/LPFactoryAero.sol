@@ -6,7 +6,7 @@
 pragma solidity ^0.8.26;
 
 // TODO: remove this
-//import "hardhat/console.sol";
+import "hardhat/console.sol";
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {TickMath} from "@uniswap/v3-core/contracts/libraries/TickMath.sol";
@@ -78,6 +78,19 @@ interface IStremeFeeCollector {
     ) external;
 }
 
+// TODO: remove this
+interface ILpLockerv2 {
+    struct UserRewardRecipient {
+        address recipient;
+        uint256 lpTokenId;
+    }
+
+    function collectRewards(uint256 _tokenId) external;
+    function addUserRewardRecipient(
+        UserRewardRecipient memory recipient
+    ) external;
+}
+
 interface IWETH {
     function deposit() external payable;
 }
@@ -102,7 +115,7 @@ contract LPFactoryAero is AccessControl {
 
     ICLPoolLauncher public poolLauncher;
 
-    mapping(int24 fee => int24 tickSpacing) public feeAmountTickSpacing;
+    mapping(uint24 fee => int24 tickSpacing) public feeAmountTickSpacing;
 
     struct DeploymentInfo {
         address token;
@@ -120,6 +133,7 @@ contract LPFactoryAero is AccessControl {
         // set common fee to tick spacing values
         feeAmountTickSpacing[20000] = 500;
         feeAmountTickSpacing[10000] = 2000;
+        feeAmountTickSpacing[3000] = 200;
     }
 
     function createLP(
@@ -131,11 +145,14 @@ contract LPFactoryAero is AccessControl {
         address deployer,
         uint256 //** preSaleEth */
     ) public onlyRole(DEPLOYER_ROLE) returns (uint256 positionId) {
-        //console.log("Creating LP");
+        console.log("Creating LP");
         token.transferFrom(msg.sender, address(this), supplyPerPool);
-        //console.log("Token balance: %s", token.balanceOf(address(this)));
+        console.log("Token balance: %s", token.balanceOf(address(this)));
+        console.log("supplyPerPool: %s", supplyPerPool);   
         token.approve(address(poolLauncher), supplyPerPool);
-        //console.log("Token approved");
+        console.log("Token approved");
+        console.log("Token approved for poolLauncher: %s", address(poolLauncher));
+        console.log("allowance: %s", token.allowance(address(this), address(poolLauncher)));
 
         int24 tickSpacing = feeAmountTickSpacing[fee];
         require(
@@ -143,10 +160,10 @@ contract LPFactoryAero is AccessControl {
                 tick % tickSpacing == 0,
             "Invalid tick"
         );
-        //console.log("Tick spacing:");
-        //console.logInt(tickSpacing);
-        //console.log("Tick:");
-        //console.logInt(tick);
+        console.log("Tick spacing:");
+        console.logInt(tickSpacing);
+        console.log("Tick:");
+        console.logInt(tick);
 
         positionId = configurePool(
             address(token),
@@ -158,12 +175,12 @@ contract LPFactoryAero is AccessControl {
             deployer,  // user requesting the token deployment
             0 // preSaleEth, not used
         );
-        //console.log("Pool configured");
+        console.log("Pool configured");
 
         DeploymentInfo memory deploymentInfo = DeploymentInfo({
             token: address(token),
             positionId: positionId,
-            locker: address(liquidityLocker)
+            locker: address(feeCollector)
         });
 
         deploymentInfoForToken[address(token)] = deploymentInfo;
@@ -188,10 +205,20 @@ contract LPFactoryAero is AccessControl {
         (address token0, address token1) = newToken < pairedToken
             ? (newToken, pairedToken)
             : (pairedToken, newToken);
-        //console.log("Token0: %s, Token1: %s", token0, token1);
+        console.log("Token0: %s, Token1: %s", token0, token1);
 
         uint160 sqrtPriceX96 = tick.getSqrtRatioAtTick();
-        //console.log("sqrtPriceX96: %s", sqrtPriceX96);
+        console.log("sqrtPriceX96: %s", sqrtPriceX96);
+
+        int24 tickTest = TickMath.getTickAtSqrtRatio(sqrtPriceX96);
+        console.log("tickTest:");
+        console.logInt(tickTest);
+
+        console.log("tickUpper: %s");
+        console.logInt((TickMath.MAX_TICK / tickSpacing) * tickSpacing);
+
+        console.log("newToken: %s", newToken);
+        console.log("pairedToken: %s", pairedToken);
 
         // Laqunch pool
         ICLPoolLauncher.LaunchParams memory params = ICLPoolLauncher.LaunchParams({
@@ -206,25 +233,27 @@ contract LPFactoryAero is AccessControl {
                 initialSqrtPriceX96: sqrtPriceX96,
                 tickLower: tick,
                 tickUpper: (TickMath.MAX_TICK / tickSpacing) * tickSpacing,
-                lockDuration: type(uint32).max
+                lockDuration: 60 //type(uint32).max
             })
         });
+        console.log("Pool launch params set");
 
         ( , address lockerAddress) = poolLauncher.launch(params, address(this));
+        console.log("Pool launched: %s", lockerAddress);
 
         positionId = ILocker(lockerAddress).lp();
-        //console.log("Position ID: %s", positionId);
+        console.log("Position ID: %s", positionId);
 
         // TODO: transfer ownership of the locker to feeCollector?
         // TODO: assign reward recipient
 
-        
-        liquidityLocker.addUserRewardRecipient(
-            ILpLockerv2.UserRewardRecipient({
-                recipient: deployer,
-                lpTokenId: positionId
-            })
-        );
+
+        //liquidityLocker.addUserRewardRecipient(
+        //    ILpLockerv2.UserRewardRecipient({
+        //        recipient: deployer,
+        //        lpTokenId: positionId
+        //    })
+        //);
         //console.log("User reward recipient added");
     }
 
@@ -243,12 +272,12 @@ contract LPFactoryAero is AccessControl {
         );
     }
 
-    function updateTickSpacing(int24 fee, int24 tickSpacing) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function updateTickSpacing(uint24 fee, int24 tickSpacing) external onlyRole(DEFAULT_ADMIN_ROLE) {
         feeAmountTickSpacing[fee] = tickSpacing;
     }
 
-    function updateLiquidityLocker(address newLocker) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        liquidityLocker = ILpLockerv2(newLocker);
+    function updateFeeCollector(address newFeeCollector) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        feeCollector = IStremeFeeCollector(newFeeCollector);
     }
 
 }
