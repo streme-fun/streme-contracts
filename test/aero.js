@@ -41,6 +41,10 @@ const {
         addr.stremeZap = process.env.STREME_ZAP;
         addr.stremeDeployV2 = process.env.STREME_PUBLIC_DEPLOYER_V2; // new
         addr.feeStreamer = process.env.STREME_FEE_STREAMER; // new
+        addr.aeroSwapRouter = "0xBE6D8f0d05cC4be24d5167a3eF062215bE6D18a5"; // Aerodrome CL SwapRouter on base chain
+        addr.aeroCLFactory = "0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a"; // Aerodrome CL Factory on base chain
+        addr.weth = "0x4200000000000000000000000000000000000006"; 
+        addr.ethx = "0x46fd5cfB4c12D87acD3a13e92BAa53240C661D93";
     } else {
         console.log("chain not supported");
         return;
@@ -60,6 +64,22 @@ const {
         addr.lpFactoryAero = await lpFactoryAero.getAddress();
         expect(addr.lpFactoryAero).to.properAddress;
       });
+
+      it("should deploy the StremeZapAero contract", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const StremeZapAero = await ethers.getContractFactory("StremeZapAero");
+        const stremeZapAero = await StremeZapAero.deploy(
+            addr.aeroSwapRouter,
+            addr.weth,
+            addr.ethx,
+            addr.aeroCLFactory
+        );
+        await stremeZapAero.waitForDeployment();
+        console.log("StremeZapAero deployed to:", await stremeZapAero.getAddress());
+        addr.stremeZapAero = await stremeZapAero.getAddress();
+        expect(addr.stremeZapAero).to.properAddress;
+      }); 
 
       it("should grant DEPLOYER_ROLE to Streme on LPFactoryAero", async function () {
         // set timeout for deployment
@@ -101,104 +121,177 @@ const {
       }); // it should register LPFactoryAero via registerLiquidityFactory on streme
 
       it("should deploy a token with 2 vaults + staking via StremeDeployV2", async function () {
-              const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
-              const [one, two] = await ethers.getSigners();
-              var signer;
-              if (chain == "localhost") {
-                signer = two;
-              } else {
-                signer = one;
-              }
-              const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
-              const stremeDeployV2JSON = require("../artifacts/contracts/extras/StremeDeployV2.sol/StremeDeployV2.json");
-              const stremeDeployV2 = new ethers.Contract(addr.stremeDeployV2, stremeDeployV2JSON.abi, signer);
-              console.log("Using StremeDeployV2 at: ", addr.stremeDeployV2);
-              var poolConfig = {
-                  "tick": -230500,
-                  "pairedToken": addr.pairedToken,
-                  "devBuyFee": 20000
-              };
-              var useDegen = false;
-              if (useDegen) {
-                  addr.pairedToken = process.env.DEGEN;
-                  poolConfig = {
-                    "tick": -164600,
-                    "pairedToken": addr.pairedToken,
-                    "devBuyFee": 10000
-                };
-              }
-              const tokenConfig = {
-                  "_name": "LP New",
-                  "_symbol": "LP",
-                  "_supply": ethers.parseEther("100000000000"), // 100 billion
-                  "_fee": 20000,
-                  "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
-                  "_deployer": process.env.BEE_DEPLOYER,
-                  "_fid": 8685,
-                  "_image": "none",
-                  "_castHash": "none",
-                  "_poolConfig": poolConfig
-              };
-              var salt, tokenAddress;
-      
-              // if network is localhost:
-              if (chain == "localhost") {
-                await ethers.provider.send("evm_mine");
-              }
-      
-              console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
-              const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
-              salt = result[0];
-              tokenAddress = result[1];
-              console.log("Salt: ", salt);
-              console.log("Token Address: ", tokenAddress);
-              addr.tokenAddress = tokenAddress;
-              tokenConfig["_salt"] = salt;
-      
-              // create allocations
-      
-              // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
-      
-              // 3 allocations, 2 for vault, 1 for staking
-              allocations = [
-                  {
-                      allocationType: 0, // Vault
-                      admin: process.env.TEAM_ALLO_TEST, // beneficiary address
-                      percentage: 20, // 20%
-                      data: ethers.AbiCoder.defaultAbiCoder().encode(
-                          ["uint256", "uint256"],
-                          [30*days, 365*days] // 30 day cliff, 365 day vesting
-                      )
-                  },
-                  {
-                      allocationType: 0, // Vault
-                      admin: process.env.COMM_ALLO_TEST, // beneficiary address
-                      percentage: 20, // 20%
-                      data: ethers.AbiCoder.defaultAbiCoder().encode(
-                          ["uint256", "uint256"],
-                          [1, 0] // no lock, no vesting ... needs special approval (for now at least)
-                      )
-                  },
-                  {
-                      allocationType: 1, // Staking
-                      admin: ethers.ZeroAddress, // zero address for Staking allocations
-                      percentage: 5, // 5%
-                      data: ethers.AbiCoder.defaultAbiCoder().encode(
-                          ["uint256", "int96"],
-                          [1*days, 365*days] // 1 day lockup, 365 days for staking rewards stream
-                      )
-                  }
-              ];
-      
-              console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactoryAero, ethers.ZeroAddress, tokenConfig, allocations);
-              await (await stremeDeployV2.deployWithAllocations(addr.tokenFactory, addr.postDeployFactory, addr.lpFactoryAero, ethers.ZeroAddress, tokenConfig, allocations)).wait();
-              console.log("Token Address: ", tokenAddress);
-      
-              // set back the minLockupDuration on the StremeVault to 7 days
-              //await (await stremeVault.setMinLockupDuration(7*days)).wait();
-      
-              expect(tokenAddress).to.not.be.empty;
-            }); // end it
+        const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        const streme = new ethers.Contract(process.env.STREME, stremeJSON.abi, signer);
+        const stremeDeployV2JSON = require("../artifacts/contracts/extras/StremeDeployV2.sol/StremeDeployV2.json");
+        const stremeDeployV2 = new ethers.Contract(addr.stremeDeployV2, stremeDeployV2JSON.abi, signer);
+        console.log("Using StremeDeployV2 at: ", addr.stremeDeployV2);
+        var poolConfig = {
+            "tick": -230500,
+            "pairedToken": addr.pairedToken,
+            "devBuyFee": 20000
+        };
+        var useDegen = false;
+        if (useDegen) {
+            addr.pairedToken = process.env.DEGEN;
+            poolConfig = {
+              "tick": -164600,
+              "pairedToken": addr.pairedToken,
+              "devBuyFee": 10000
+          };
+        }
+        const tokenConfig = {
+            "_name": "LP New",
+            "_symbol": "LP",
+            "_supply": ethers.parseEther("100000000000"), // 100 billion
+            "_fee": 20000,
+            "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+            "_deployer": process.env.BEE_DEPLOYER,
+            "_fid": 8685,
+            "_image": "none",
+            "_castHash": "none",
+            "_poolConfig": poolConfig
+        };
+        var salt, tokenAddress;
 
+        // if network is localhost:
+        if (chain == "localhost") {
+          await ethers.provider.send("evm_mine");
+        }
+
+        console.log(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        const result = await streme.generateSalt(tokenConfig["_symbol"], tokenConfig["_deployer"], addr.tokenFactory, addr.pairedToken);
+        salt = result[0];
+        tokenAddress = result[1];
+        console.log("Salt: ", salt);
+        console.log("Token Address: ", tokenAddress);
+        addr.tokenAddress = tokenAddress;
+        tokenConfig["_salt"] = salt;
+
+        // create allocations
+
+        // ethers6 encoder: ethers.AbiCoder.defaultAbiCoder()
+
+        // 3 allocations, 2 for vault, 1 for staking
+        allocations = [
+            {
+                allocationType: 0, // Vault
+                admin: process.env.TEAM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [30*days, 365*days] // 30 day cliff, 365 day vesting
+                )
+            },
+            {
+                allocationType: 0, // Vault
+                admin: process.env.COMM_ALLO_TEST, // beneficiary address
+                percentage: 20, // 20%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "uint256"],
+                    [1, 0] // no lock, no vesting ... needs special approval (for now at least)
+                )
+            },
+            {
+                allocationType: 1, // Staking
+                admin: ethers.ZeroAddress, // zero address for Staking allocations
+                percentage: 5, // 5%
+                data: ethers.AbiCoder.defaultAbiCoder().encode(
+                    ["uint256", "int96"],
+                    [1*days, 365*days] // 1 day lockup, 365 days for staking rewards stream
+                )
+            }
+        ];
+
+        console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactoryAero, ethers.ZeroAddress, tokenConfig, allocations);
+        await (await stremeDeployV2.deployWithAllocations(addr.tokenFactory, addr.postDeployFactory, addr.lpFactoryAero, ethers.ZeroAddress, tokenConfig, allocations)).wait();
+        console.log("Token Address: ", tokenAddress);
+
+        // set back the minLockupDuration on the StremeVault to 7 days
+        //await (await stremeVault.setMinLockupDuration(7*days)).wait();
+
+        expect(tokenAddress).to.not.be.empty;
+      }); // end it
+
+      it("should get the pool address from CLFactory contract", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        // CLFactory abi:
+        const clFactoryAbi = [ "function getPool(address tokenA, address tokenB, int24 tickSpacing) external view returns (address pool)" ];
+        const clFactory = new ethers.Contract("0xaDe65c38CD4849aDBA595a4323a8C7DdfE89716a", clFactoryAbi, signer);
+        const poolAddress = await clFactory.getPool(addr.tokenAddress, addr.pairedToken, 500);
+        console.log("Aerodrome CL Pool Address: ", poolAddress);
+        addr.poolAddress = poolAddress;
+        expect(addr.poolAddress).to.properAddress;
+      }); // it should get the pool address from CLFactory contract
+
+      it("should swap 1 ETH for the new token via StremeZapAero.zap", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        // StremeZapAero contract
+        const stremeZapAeroJSON = require("../artifacts/contracts/liquidity/aerodrome/StremeZapAero.sol/StremeZapAero.json");
+        const stremeZapAero = new ethers.Contract(addr.stremeZapAero, stremeZapAeroJSON.abi, signer);
+        const amountIn = ethers.parseEther("1"); // 1 ETH
+        const amountOutMin = 0; // accept any amount
+        const tx = await stremeZapAero.zap(
+            addr.tokenAddress,
+            amountIn,
+            amountOutMin,
+            ethers.ZeroAddress, // send to self
+            { value: amountIn }
+        );
+        const receipt = await tx.wait();
+        console.log("Swapped 1 ETH for new token via StremeZapAero.zap:", addr.tokenAddress);
+        expect(receipt).to.be.ok;
+      }); // it should swap 1 ETH for the new token via StremeZapAero
+
+      it("should swap 1 ETH for the new token via StremeZapAero.swap", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        // StremeZapAero contract
+        const stremeZapAeroJSON = require("../artifacts/contracts/liquidity/aerodrome/StremeZapAero.sol/StremeZapAero.json");
+        const stremeZapAero = new ethers.Contract(addr.stremeZapAero, stremeZapAeroJSON.abi, signer);
+        const amountIn = ethers.parseEther("1"); // 1 ETH
+        const amountOutMin = 0; // accept any amount
+        const tx = await stremeZapAero.swap(
+            addr.poolAddress,
+            addr.tokenAddress,
+            amountIn,
+            amountOutMin,
+            ethers.ZeroAddress, // send to self
+            { value: amountIn }
+        );
+        const receipt = await tx.wait();
+        console.log("Swapped 1 ETH for new token via StremeZapAero.swap:", addr.tokenAddress);
+        expect(receipt).to.be.ok;
+      }); // it should swap 1 ETH for the new token via StremeZapAero.swap
 
     }); // describe Aerodrome LP

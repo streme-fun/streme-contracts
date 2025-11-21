@@ -1,8 +1,5 @@
 // SPDX-License-Identifier: MIT
 
-// @dev This contract is modified from open source code by the Clanker team. Much credit goes to them.
-// @dev https://github.com/clanker-devco/contracts/blob/main/src/Clanker.sol
-
 pragma solidity ^0.8.26;
 
 // TODO: remove this
@@ -239,7 +236,7 @@ contract LPFactoryAero is AccessControl {
         console.log("Pool launch params set");
 
         ( , address lockerAddress) = poolLauncher.launch(params, address(this));
-        console.log("Pool launched: %s", lockerAddress);
+        console.log("Pool launched, locker address: %s", lockerAddress);
 
         positionId = ILocker(lockerAddress).lp();
         console.log("Position ID: %s", positionId);
