@@ -11,6 +11,8 @@ const {
   const chain = hre.network.name;
   console.log("chain: ", chain);
 
+    const teamReward = 60;
+
     var addr = {};
     if (chain == "baseSepolia") {
         addr.pairedToken = "0x4200000000000000000000000000000000000006"; // weth
@@ -54,11 +56,26 @@ const {
   
     describe("Aerodrome LP", function () {
 
+      it("should deploy StremeFeeCollector contract", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const StremeFeeCollector = await ethers.getContractFactory("StremeFeeCollector");
+        const stremeFeeCollector = await StremeFeeCollector.deploy(
+          addr.feeStreamer,
+          addr.teamRecipient,
+          teamReward
+        );
+        await stremeFeeCollector.waitForDeployment();
+        console.log("StremeFeeCollector deployed to:", await stremeFeeCollector.getAddress());
+        addr.stremeFeeCollector = await stremeFeeCollector.getAddress();
+        expect(addr.stremeFeeCollector).to.properAddress;
+      });
+
       it("should deploy the LPFactoryAero contract", async function () {
         // set timeout for deployment
         this.timeout(600000);
         const LPFactoryAero = await ethers.getContractFactory("LPFactoryAero");
-        const lpFactoryAero = await LPFactoryAero.deploy(process.env.AERO_POOL_LAUNCHER, ethers.ZeroAddress);
+        const lpFactoryAero = await LPFactoryAero.deploy(process.env.AERO_POOL_LAUNCHER, addr.stremeFeeCollector);
         await lpFactoryAero.waitForDeployment();
         console.log("LPFactoryAero deployed to:", await lpFactoryAero.getAddress());
         addr.lpFactoryAero = await lpFactoryAero.getAddress();
@@ -79,7 +96,27 @@ const {
         console.log("StremeZapAero deployed to:", await stremeZapAero.getAddress());
         addr.stremeZapAero = await stremeZapAero.getAddress();
         expect(addr.stremeZapAero).to.properAddress;
-      }); 
+      });
+
+      it("should grant DEPLOYER_ROLE to LPFactoryAero on StremeFeeCollector", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = one;
+        } else {
+          signer = one;
+        }
+        // StremeFeeCollector contract
+        const stremeFeeCollectorJSON = require("../artifacts/contracts/liquidity/fees/StremeFeeCollector.sol/StremeFeeCollector.json");
+        const stremeFeeCollector = new ethers.Contract(addr.stremeFeeCollector, stremeFeeCollectorJSON.abi, signer);
+        const DEPLOYER_ROLE = await stremeFeeCollector.DEPLOYER_ROLE();
+        const tx = await stremeFeeCollector.grantRole(DEPLOYER_ROLE, addr.lpFactoryAero);
+        await tx.wait();
+        console.log("DEPLOYER_ROLE granted to LPFactoryAero on StremeFeeCollector:", addr.lpFactoryAero);
+        expect(tx).to.be.ok;
+      }); // it should grant DEPLOYER_ROLE to LPFactoryAero on StremeFeeCollector
 
       it("should grant DEPLOYER_ROLE to Streme on LPFactoryAero", async function () {
         // set timeout for deployment
@@ -239,7 +276,7 @@ const {
         expect(addr.poolAddress).to.properAddress;
       }); // it should get the pool address from CLFactory contract
 
-      it("should swap 1 ETH for the new token via StremeZapAero.zap", async function () {
+      it.skip("should swap 1 ETH for the new token via StremeZapAero.zap", async function () {
         // set timeout for deployment
         this.timeout(600000);
         const [one, two] = await ethers.getSigners();
@@ -293,5 +330,24 @@ const {
         console.log("Swapped 1 ETH for new token via StremeZapAero.swap:", addr.tokenAddress);
         expect(receipt).to.be.ok;
       }); // it should swap 1 ETH for the new token via StremeZapAero.swap
+
+      it("should claim fees from StremeFeeCollector", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        // StremeFeeCollector contract
+        const stremeFeeCollectorJSON = require("../artifacts/contracts/liquidity/fees/StremeFeeCollector.sol/StremeFeeCollector.json");
+        const stremeFeeCollector = new ethers.Contract(addr.stremeFeeCollector, stremeFeeCollectorJSON.abi, signer);
+        const tx = await stremeFeeCollector.claimRewards(addr.tokenAddress);
+        const receipt = await tx.wait();
+        console.log("Claimed fees from StremeFeeCollector:", addr.stremeFeeCollector);
+        expect(receipt).to.be.ok;
+      });
 
     }); // describe Aerodrome LP

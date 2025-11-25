@@ -267,7 +267,9 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
         address distributor,
         bytes calldata data
     ) external onlyRole(DEPLOYER_ROLE) {
-        require(approvedDistributors[distributor], "Distributor not approved");
+        if (distributor != address(0)) {
+            require(approvedDistributors[distributor], "Distributor not approved");
+        }
         feeCollectionStrategies[stremeCoin] = FeeCollectionStrategy({
             locker: locker,
             admin: admin,
@@ -284,7 +286,9 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
         bytes calldata data
     ) external {
         require(msg.sender == feeCollectionStrategies[stremeCoin].admin, "Not admin");
-        require(approvedDistributors[distributor], "Distributor not approved");
+        if (distributor != address(0)) {
+            require(approvedDistributors[distributor], "Distributor not approved");
+        }
         feeCollectionStrategies[stremeCoin] = FeeCollectionStrategy({
             locker: locker,
             admin: admin,

@@ -58,6 +58,7 @@ interface ICLPoolLauncher {
 
 interface ILocker{
     function lp() external view returns (uint256);
+    function owner() external view returns (address);
     function transferOwnership(address newOwner) external;
 }
 
@@ -238,6 +239,8 @@ contract LPFactoryAero is AccessControl {
 
         positionId = ILocker(lockerAddress).lp();
         console.log("Position ID: %s", positionId);
+
+        console.log("current locker owner: %s", ILocker(lockerAddress).owner());
 
         // @dev transfer ownership of the locker to feeCollector?
         ILocker(lockerAddress).transferOwnership(address(feeCollector));
