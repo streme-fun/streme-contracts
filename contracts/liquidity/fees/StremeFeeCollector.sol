@@ -132,6 +132,13 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
     error NotAllowed(address user);
     error InvalidTokenId(uint256 tokenId);
 
+    event FeesClaimed(
+        address indexed stremeCoin,
+        address indexed pairedToken,
+        uint256 stremeCoinAmount,
+        uint256 pairedTokenAmount
+    );
+
     constructor(IStremeFeeStreamer _feeStreamer, address teamRecipient, uint256 teamReward) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
@@ -151,24 +158,28 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             // uni v3 rewards
             _claimUniV3Rewards(stremeCoinAddress, strategy);
         } else {
-            // AERO locker rewards
-            ILocker locker = ILocker(strategy.locker);
-            (uint256 stremeCoinAmount, uint256 pairedTokenAmount) = locker.claimFees(address(this));
-            console.log("Claimed fees from locker:", stremeCoinAmount, pairedTokenAmount);
-            if (locker.token0() != stremeCoinAddress) {
-                console.log("token0 should be stremeCoin but is not, %s", locker.token0());
-            }
-            IERC20 stremeCoin = IERC20(stremeCoinAddress);
-            IERC20 pairedToken = IERC20(locker.token1());
-
-            _distributeFees(
-                stremeCoin,
-                pairedToken,
-                stremeCoinAmount,
-                pairedTokenAmount,
-                strategy
-            );
+            _claimAeroRewards(stremeCoinAddress, strategy);
         }
+    }
+
+    function _claimAeroRewards(address stremeCoinAddress, FeeCollectionStrategy memory strategy) internal {
+        // AERO locker rewards
+        ILocker locker = ILocker(strategy.locker);
+        (uint256 stremeCoinAmount, uint256 pairedTokenAmount) = locker.claimFees(address(this));
+        console.log("Claimed fees from locker:", stremeCoinAmount, pairedTokenAmount);
+        if (locker.token0() != stremeCoinAddress) {
+            console.log("token0 should be stremeCoin but is not, %s", locker.token0());
+        }
+        IERC20 stremeCoin = IERC20(stremeCoinAddress);
+        IERC20 pairedToken = IERC20(locker.token1());
+
+        _distributeFees(
+            stremeCoin,
+            pairedToken,
+            stremeCoinAmount,
+            pairedTokenAmount,
+            strategy
+        );
     }
 
     function _claimUniV3Rewards(address stremeCoinAddress, FeeCollectionStrategy memory strategy) internal {
@@ -188,8 +199,6 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             ,
             ,
             ,
-            ,
-
         ) = positionManagerContract.positions(tokenId);
         if (token0 != stremeCoinAddress && token1 != stremeCoinAddress) {
             console.log("stremeCoinAddress is neither token0 nor token1 for tokenId %s", tokenId);
@@ -215,13 +224,6 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
         FeeCollectionStrategy memory strategy
     ) internal {
         // @dev distribution logic
-        address teamRecipient = _teamRecipient;
-        uint256 teamReward = _teamReward;
-        TeamRewardRecipient memory overrideRewardRecipient = _teamOverrideRewardRecipientForToken[address(stremeCoin)];
-        if (overrideRewardRecipient.recipient != address(0)) {
-            teamRecipient = overrideRewardRecipient.recipient;
-            teamReward = overrideRewardRecipient.reward;
-        }
         if (strategy.distributor != address(0) && approvedDistributors[strategy.distributor]) {
             // use distributor to distribute fees
             stremeCoin.approve(strategy.distributor, stremeCoinAmount);
@@ -230,6 +232,15 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             IStremeFeeDistributor(strategy.distributor).distributeFees(stremeCoin, pairedToken, stremeCoinAmount, pairedTokenAmount);
         } else {
             // @dev no distributor set, so distribute directly to admin:
+            address teamRecipient = _teamRecipient;
+            uint256 teamReward = _teamReward;
+            TeamRewardRecipient memory overrideRewardRecipient = _teamOverrideRewardRecipientForToken[address(stremeCoin)];
+            if (overrideRewardRecipient.recipient != address(0)) {
+                teamRecipient = overrideRewardRecipient.recipient;
+                teamReward = overrideRewardRecipient.reward;
+            }
+
+            // @dev distribute the fees
             stremeCoin.transfer(strategy.admin, stremeCoinAmount - ((stremeCoinAmount * teamReward) / 100));
             pairedToken.transfer(strategy.admin, pairedTokenAmount - ((pairedTokenAmount * teamReward) / 100));
 
@@ -257,7 +268,7 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
         bytes calldata data
     ) external onlyRole(DEPLOYER_ROLE) {
         require(approvedDistributors[distributor], "Distributor not approved");
-        feeCollectionStrategies[stremeCoin] = feeCollectionStrategy({
+        feeCollectionStrategies[stremeCoin] = FeeCollectionStrategy({
             locker: locker,
             admin: admin,
             distributor: distributor,
@@ -274,7 +285,7 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
     ) external {
         require(msg.sender == feeCollectionStrategies[stremeCoin].admin, "Not admin");
         require(approvedDistributors[distributor], "Distributor not approved");
-        feeCollectionStrategies[stremeCoin] = feeCollectionStrategy({
+        feeCollectionStrategies[stremeCoin] = FeeCollectionStrategy({
             locker: locker,
             admin: admin,
             distributor: distributor,

@@ -58,20 +58,18 @@ interface ICLPoolLauncher {
 
 interface ILocker{
     function lp() external view returns (uint256);
+    function transferOwnership(address newOwner) external;
 }
 
 
 
 interface IStremeFeeCollector {
-    // TODO: define fee collector interface and contract
-    struct UserRewardRecipient {
-        address recipient;
-        uint256 lpTokenId;
-    }
-
-    function collectRewards(uint256 _tokenId) external;
-    function addUserRewardRecipient(
-        UserRewardRecipient memory recipient
+    function setFeeCollectionStrategy(
+        address stremeCoin,
+        address locker,
+        address admin,
+        address distributor,
+        bytes calldata data
     ) external;
 }
 
@@ -241,7 +239,10 @@ contract LPFactoryAero is AccessControl {
         positionId = ILocker(lockerAddress).lp();
         console.log("Position ID: %s", positionId);
 
-        // TODO: transfer ownership of the locker to feeCollector?
+        // @dev transfer ownership of the locker to feeCollector?
+        ILocker(lockerAddress).transferOwnership(address(feeCollector));
+        console.log("Locker ownership transferred to feeCollector: %s", address(feeCollector));
+        
         // TODO: assign reward recipient
 
 
@@ -252,6 +253,14 @@ contract LPFactoryAero is AccessControl {
         //    })
         //);
         //console.log("User reward recipient added");
+        feeCollector.setFeeCollectionStrategy(
+            newToken,
+            lockerAddress,
+            deployer,
+            address(0),
+            ""
+        );
+        console.log("Fee collection strategy set");
     }
 
     function getTokensDeployedByUser(
