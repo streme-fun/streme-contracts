@@ -2,9 +2,6 @@
 
 pragma solidity ^0.8.26;
 
-// TODO: remove this
-import "hardhat/console.sol";
-
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
@@ -152,10 +149,10 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
         FeeCollectionStrategy memory strategy = feeCollectionStrategies[stremeCoinAddress];
         
         if (strategy.locker == address(0)) {
-            // default to fee streamer
+            // @dev default to fee streamer
             feeStreamer.claimRewards(stremeCoinAddress);
         } else if (strategy.locker == address(this)) {
-            // uni v3 rewards
+            // @dev uni v3 rewards
             _claimUniV3Rewards(stremeCoinAddress, strategy);
         } else {
             _claimAeroRewards(stremeCoinAddress, strategy);
@@ -166,10 +163,6 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
         // AERO locker rewards
         ILocker locker = ILocker(strategy.locker);
         (uint256 stremeCoinAmount, uint256 pairedTokenAmount) = locker.claimFees(address(this));
-        console.log("Claimed fees from locker:", stremeCoinAmount, pairedTokenAmount);
-        if (locker.token0() != stremeCoinAddress) {
-            console.log("token0 should be stremeCoin but is not, %s", locker.token0());
-        }
         IERC20 stremeCoin = IERC20(stremeCoinAddress);
         IERC20 pairedToken = IERC20(locker.token1());
 
@@ -201,7 +194,6 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             ,
         ) = positionManagerContract.positions(tokenId);
         if (token0 != stremeCoinAddress && token1 != stremeCoinAddress) {
-            console.log("stremeCoinAddress is neither token0 nor token1 for tokenId %s", tokenId);
             revert InvalidTokenId(tokenId);
         }
         (uint256 amount0, uint256 amount1) = positionManagerContract.collect(
@@ -228,6 +220,7 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             // use distributor to distribute fees
             stremeCoin.approve(strategy.distributor, stremeCoinAmount);
             pairedToken.approve(strategy.distributor, pairedTokenAmount);
+
             // @dev call distributor to distribute fees
             IStremeFeeDistributor(strategy.distributor).distributeFees(stremeCoin, pairedToken, stremeCoinAmount, pairedTokenAmount);
         } else {
@@ -262,7 +255,7 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
 
     function setFeeCollectionStrategy(
         address stremeCoin,
-        address locker,
+        address _locker,
         address admin,
         address distributor,
         bytes calldata data
@@ -271,7 +264,7 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             require(approvedDistributors[distributor], "Distributor not approved");
         }
         feeCollectionStrategies[stremeCoin] = FeeCollectionStrategy({
-            locker: locker,
+            locker: _locker,
             admin: admin,
             distributor: distributor,
             data: data
@@ -280,7 +273,7 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
 
     function editFeeCollectionStrategy(
         address stremeCoin,
-        address locker,
+        address _locker,
         address admin,
         address distributor,
         bytes calldata data
@@ -290,7 +283,7 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             require(approvedDistributors[distributor], "Distributor not approved");
         }
         feeCollectionStrategies[stremeCoin] = FeeCollectionStrategy({
-            locker: locker,
+            locker: _locker,
             admin: admin,
             distributor: distributor,
             data: data
@@ -299,6 +292,15 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
 
     function approveDistributor(address distributor, bool approved) external onlyRole(MANAGER_ROLE) {
         approvedDistributors[distributor] = approved;
+    }
+
+    function locker(address stremeCoin) external view returns (address) {
+        return feeCollectionStrategies[stremeCoin].locker;
+    }
+
+    // @dev emergency function to withdraw ERC20 tokens sent to this contract
+    function withdrawERC20(IERC20 token, address to, uint256 amount) external onlyRole(MANAGER_ROLE) {
+        token.transfer(to, amount);
     }
 
      function onERC721Received(

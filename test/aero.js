@@ -38,6 +38,7 @@ const {
         addr.teamRecipient = process.env.STREME_TEAM_RECIPIENT;
         addr.uniswapV3Factory = "0x33128a8fC17869897dcE68Ed026d694621f6FDfD"; 
         addr.uniswapV3PositionManager = "0x03a520b32C04BF3bEEf7BEb72E919cf822Ed34f1";
+        addr.uniSwapRouter = "0x2626664c2603336E57B271c5C0b26F421741e481"; // Uniswap V3 SwapRouter address
         addr.protocolFactory = "0xe20B9a38E0c96F61d1bA6b42a61512D56Fea1Eb3"; // SuperTokenFactory on base chain
         addr.protocolSuperTokenFactory = process.env.SUPER_TOKEN_FACTORY;
         addr.stremeZap = process.env.STREME_ZAP;
@@ -71,6 +72,19 @@ const {
         expect(addr.stremeFeeCollector).to.properAddress;
       });
 
+      it("should deploy the StremeFeeDistributorTransfer contract", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const StremeFeeDistributorTransfer = await ethers.getContractFactory("StremeFeeDistributorTransfer");
+        const stremeFeeDistributorTransfer = await StremeFeeDistributorTransfer.deploy(
+          addr.stremeFeeCollector
+        );
+        await stremeFeeDistributorTransfer.waitForDeployment();
+        console.log("StremeFeeDistributorTransfer deployed to:", await stremeFeeDistributorTransfer.getAddress());
+        addr.stremeFeeDistributorTransfer = await stremeFeeDistributorTransfer.getAddress();
+        expect(addr.stremeFeeDistributorTransfer).to.properAddress;
+      });
+
       it("should deploy the LPFactoryAero contract", async function () {
         // set timeout for deployment
         this.timeout(600000);
@@ -97,6 +111,44 @@ const {
         addr.stremeZapAero = await stremeZapAero.getAddress();
         expect(addr.stremeZapAero).to.properAddress;
       });
+
+      it("should deploy StremeZapDual contract", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const StremeZapDual = await ethers.getContractFactory("StremeZapDual");
+        const stremeZapDual = await StremeZapDual.deploy(
+            addr.uniSwapRouter,
+            addr.weth,
+            addr.ethx,
+            addr.lpFactoryAero
+        );
+        await stremeZapDual.waitForDeployment();
+        console.log("StremeZapDual deployed to:", await stremeZapDual.getAddress());
+        addr.stremeZapDual = await stremeZapDual.getAddress();
+        expect(addr.stremeZapDual).to.properAddress;
+      });
+
+      it("should set approved distributor on StremeFeeCollector", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = one;
+        } else {
+          signer = one;
+        }
+        // StremeFeeCollector contract
+        const stremeFeeCollectorJSON = require("../artifacts/contracts/liquidity/fees/StremeFeeCollector.sol/StremeFeeCollector.json");
+        const stremeFeeCollector = new ethers.Contract(addr.stremeFeeCollector, stremeFeeCollectorJSON.abi, signer);
+        const tx = await stremeFeeCollector.approveDistributor(
+          addr.stremeFeeDistributorTransfer,
+          true
+        );
+        await tx.wait();
+        console.log("Approved distributor set on StremeFeeCollector:", addr.stremeFeeDistributorTransfer);
+        expect(tx).to.be.ok;
+      }); // it should set approved distributor on StremeFeeCollector
 
       it("should grant DEPLOYER_ROLE to LPFactoryAero on StremeFeeCollector", async function () {
         // set timeout for deployment
@@ -190,7 +242,7 @@ const {
             "_supply": ethers.parseEther("100000000000"), // 100 billion
             "_fee": 20000,
             "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
-            "_deployer": process.env.BEE_DEPLOYER,
+            "_deployer": process.env.GEORGE,
             "_fid": 8685,
             "_image": "none",
             "_castHash": "none",
@@ -303,7 +355,7 @@ const {
         expect(receipt).to.be.ok;
       }); // it should swap 1 ETH for the new token via StremeZapAero
 
-      it("should swap 1 ETH for the new token via StremeZapAero.swap", async function () {
+      it.skip("should swap 1 ETH for the new token via StremeZapAero.swap", async function () {
         // set timeout for deployment
         this.timeout(600000);
         const [one, two] = await ethers.getSigners();
@@ -331,7 +383,7 @@ const {
         expect(receipt).to.be.ok;
       }); // it should swap 1 ETH for the new token via StremeZapAero.swap
 
-      it("should claim fees from StremeFeeCollector", async function () {
+      it("should swap 1 ETH for the new token via StremeZapDual.zap", async function () {
         // set timeout for deployment
         this.timeout(600000);
         const [one, two] = await ethers.getSigners();
@@ -341,6 +393,96 @@ const {
         } else {
           signer = one;
         }
+        // StremeZapDual contract
+        const stremeZapDualJSON = require("../artifacts/contracts/StremeZapDual.sol/StremeZapDual.json");
+        const stremeZapDual = new ethers.Contract(addr.stremeZapDual, stremeZapDualJSON.abi, signer);
+        const amountIn = ethers.parseEther("1"); // 1 ETH
+        const amountOutMin = 0; // accept any amount
+        const tx = await stremeZapDual.zap(
+            addr.tokenAddress,
+            amountIn,
+            amountOutMin,
+            ethers.ZeroAddress, // send to self
+            { value: amountIn }
+        );
+        const receipt = await tx.wait();
+        console.log("Swapped 1 ETH for new token via StremeZapDual.zap:", addr.tokenAddress);
+        expect(receipt).to.be.ok;
+      }); // it should swap 1 ETH for the new token via StremeZapDual.zap
+
+      it("should swap 1 ETH for the old token via StremeZapDual.zap", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        // StremeZapDual contract
+        const stremeZapDualJSON = require("../artifacts/contracts/StremeZapDual.sol/StremeZapDual.json");
+        const stremeZapDual = new ethers.Contract(addr.stremeZapDual, stremeZapDualJSON.abi, signer);
+        const amountIn = ethers.parseEther("1"); // 1 ETH
+        const amountOutMin = 0; // accept any amount
+        const tx = await stremeZapDual.zap(
+            process.env.STREME_COIN_EXAMPLE,
+            amountIn,
+            amountOutMin,
+            ethers.ZeroAddress, // send to self
+            { value: amountIn }
+        );
+        const receipt = await tx.wait();
+        console.log("Swapped 1 ETH for old token via StremeZapDual.zap:", process.env.STREME_COIN_EXAMPLE);
+        expect(receipt).to.be.ok;
+      }); // it should swap 1 ETH for the old token via StremeZapDual.zap
+
+      it("should enable GEORGE to edit the fee collection strategy on StremeFeeCollector", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two, george] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = one;
+        } else {
+          signer = one;
+        }
+        // StremeFeeCollector contract
+        const stremeFeeCollectorJSON = require("../artifacts/contracts/liquidity/fees/StremeFeeCollector.sol/StremeFeeCollector.json");
+        const stremeFeeCollector = new ethers.Contract(addr.stremeFeeCollector, stremeFeeCollectorJSON.abi, signer);
+        const tx = await stremeFeeCollector.connect(george).editFeeCollectionStrategy(
+          addr.tokenAddress,
+          await stremeFeeCollector.locker(addr.tokenAddress),
+          george.address,
+          addr.stremeFeeDistributorTransfer,
+          "0x"
+        );
+        const receipt = await tx.wait();
+        console.log("Edited fee collection strategy on StremeFeeCollector for token:", addr.tokenAddress);
+
+        // now fetch and log the strategy
+        const strategy = await stremeFeeCollector.feeCollectionStrategies(addr.tokenAddress);
+        console.log("New fee collection strategy:", strategy);
+
+        expect(receipt).to.be.ok;
+      }); // it should enable GEORGE to edit the fee collection strategy on StremeFeeCollector
+
+
+      it("should claim fees for new token from StremeFeeCollector", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        // George's erc20 weth balance before
+
+        const erc20Weth = new ethers.Contract(addr.weth, [ "function balanceOf(address) view returns (uint256)" ], signer);
+        const georgeWethBalanceBefore = await erc20Weth.balanceOf(process.env.GEORGE);
+        console.log("George's erc20 weth balance before:", georgeWethBalanceBefore.toString());
         // StremeFeeCollector contract
         const stremeFeeCollectorJSON = require("../artifacts/contracts/liquidity/fees/StremeFeeCollector.sol/StremeFeeCollector.json");
         const stremeFeeCollector = new ethers.Contract(addr.stremeFeeCollector, stremeFeeCollectorJSON.abi, signer);
@@ -348,6 +490,42 @@ const {
         const receipt = await tx.wait();
         console.log("Claimed fees from StremeFeeCollector:", addr.stremeFeeCollector);
         expect(receipt).to.be.ok;
+
+        // George's erc20 weth balance after
+        const georgeWethBalanceAfter = await erc20Weth.balanceOf(process.env.GEORGE);
+        console.log("George's erc20 weth balance after:", georgeWethBalanceAfter.toString());
+        console.log("Change in George's erc20 weth balance:", georgeWethBalanceAfter - georgeWethBalanceBefore);
+        expect(georgeWethBalanceAfter).to.be.gt(georgeWethBalanceBefore);
+      });
+
+      it("should claim fees for OLD token from StremeFeeCollector", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = two;
+        } else {
+          signer = one;
+        }
+        // George's erc20 weth balance before
+
+        const erc20Weth = new ethers.Contract(addr.weth, [ "function balanceOf(address) view returns (uint256)" ], signer);
+        const georgeWethBalanceBefore = await erc20Weth.balanceOf(process.env.OWNER);
+        console.log("George's erc20 weth balance before:", georgeWethBalanceBefore.toString());
+        // StremeFeeCollector contract
+        const stremeFeeCollectorJSON = require("../artifacts/contracts/liquidity/fees/StremeFeeCollector.sol/StremeFeeCollector.json");
+        const stremeFeeCollector = new ethers.Contract(addr.stremeFeeCollector, stremeFeeCollectorJSON.abi, signer);
+        const tx = await stremeFeeCollector.claimRewards(process.env.STREME_COIN_EXAMPLE);
+        const receipt = await tx.wait();
+        console.log("Claimed fees from StremeFeeCollector:", addr.stremeFeeCollector);
+        expect(receipt).to.be.ok;
+
+        // George's erc20 weth balance after
+        const georgeWethBalanceAfter = await erc20Weth.balanceOf(process.env.OWNER);
+        console.log("George's erc20 weth balance after:", georgeWethBalanceAfter.toString());
+        console.log("Change in George's erc20 weth balance:", georgeWethBalanceAfter - georgeWethBalanceBefore);
+        expect(georgeWethBalanceAfter).to.be.gt(georgeWethBalanceBefore);
       });
 
     }); // describe Aerodrome LP

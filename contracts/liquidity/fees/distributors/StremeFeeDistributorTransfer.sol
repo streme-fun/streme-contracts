@@ -2,17 +2,14 @@
 
 pragma solidity ^0.8.26;
 
-// TODO: remove this
-import "hardhat/console.sol";
-
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 interface IStremeFeeCollector {
-    struct feeCollectionStrategy {
-        address feeModule;
+    struct FeeCollectionStrategy {
         address locker;
         address admin;
+        address distributor; // optional contract to distribute fees
         bytes data; // custom data for fee collection strategy
     }
     struct TeamRewardRecipient {
@@ -22,10 +19,11 @@ interface IStremeFeeCollector {
     function _teamRecipient() external view returns (address);
     function _teamReward() external view returns (uint256);
     function _teamOverrideRewardRecipientForToken(address stremeCoin) external view returns (TeamRewardRecipient memory);
-    function feeCollectionStrategies(address stremeCoin) external view returns (feeCollectionStrategy memory);
+    // @dev mapping of stremeCoin address to fee collection strategy - returns a tuple due to a bytes member of the struct
+    function feeCollectionStrategies(address stremeCoin) external view returns (address locker, address admin, address distributor, bytes memory data);
 }
 
-contract StremeFeeCollectorTransfer is AccessControl {
+contract StremeFeeDistributorTransfer is AccessControl {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
     IStremeFeeCollector public feeCollector;
@@ -42,10 +40,9 @@ contract StremeFeeCollectorTransfer is AccessControl {
         IERC20 pairedToken, 
         uint256 stremeCoinAmount, 
         uint256 pairedTokenAmount
-    ) external onlyRole(DEPLOYER_ROLE) {
-        IStremeFeeCollector.feeCollectionStrategy memory strategy = feeCollector.feeCollectionStrategies(address(stremeCoin));
+    ) external onlyRole(DEPLOYER_ROLE) {  
+        ( , address admin, , ) = feeCollector.feeCollectionStrategies(address(stremeCoin));
 
-        // @dev distribution logic
         address teamRecipient = feeCollector._teamRecipient();
         uint256 teamReward = feeCollector._teamReward();
         IStremeFeeCollector.TeamRewardRecipient memory overrideRewardRecipient = feeCollector._teamOverrideRewardRecipientForToken(address(stremeCoin));
@@ -54,13 +51,13 @@ contract StremeFeeCollectorTransfer is AccessControl {
             teamReward = overrideRewardRecipient.reward;
         }
 
-        // pull in the tokens from the caller
+        // @dev pull in the tokens from the caller
         require(stremeCoin.transferFrom(msg.sender, address(this), stremeCoinAmount), "Transfer of StremeCoin failed");
         require(pairedToken.transferFrom(msg.sender, address(this), pairedTokenAmount), "Transfer of PairedToken failed");
 
-        // distribute the fees
-        stremeCoin.transfer(strategy.admin, stremeCoinAmount - ((stremeCoinAmount * teamReward) / 100));
-        pairedToken.transfer(strategy.admin, pairedTokenAmount - ((pairedTokenAmount * teamReward) / 100));
+        // @dev distribute the fees
+        stremeCoin.transfer(admin, stremeCoinAmount - ((stremeCoinAmount * teamReward) / 100));
+        pairedToken.transfer(admin, pairedTokenAmount - ((pairedTokenAmount * teamReward) / 100));
 
         stremeCoin.transfer(teamRecipient, (stremeCoinAmount * teamReward) / 100);
         pairedToken.transfer(teamRecipient, (pairedTokenAmount * teamReward) / 100);
