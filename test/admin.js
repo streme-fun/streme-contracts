@@ -132,10 +132,25 @@ const {
         const [other, signer, george, kramer] = await ethers.getSigners();
         const stremeVaultAdminJSON = require("../artifacts/contracts/extras/StremeVaultAdminFactory.sol/StremeVaultAdmin.json");
         const stremeVaultAdmin = new ethers.Contract(addr.stremeVaultAdmin, stremeVaultAdminJSON.abi, george);
-        const tx = await stremeVaultAdmin.updateMemberUnits(addr.tokenAddress, addr.stremeVaultAdmin, process.env.KRAMER, 1);
+        const tx = await stremeVaultAdmin.updateMemberUnits(addr.tokenAddress, process.env.KRAMER, 1);
         await tx.wait();
         console.log("Kramer added as member on vault");
         expect(1).to.equal(1);
+      });
+
+      it("should allow George to add 10 units to Kramer", async function() {
+        // set timeout
+        this.timeout(60000);
+        const [other, signer, george, kramer] = await ethers.getSigners();
+        const stremeVaultAdminJSON = require("../artifacts/contracts/extras/StremeVaultAdminFactory.sol/StremeVaultAdmin.json");
+        const stremeVaultAdmin = new ethers.Contract(addr.stremeVaultAdmin, stremeVaultAdminJSON.abi, george);
+        const tx = await stremeVaultAdmin.addMemberUnits(addr.tokenAddress, process.env.KRAMER, 10);
+        await tx.wait();
+        console.log("Kramer added 10 units on vault");
+        // total units should be 11 now
+        const units = await stremeVaultAdmin.getUnits(addr.tokenAddress, process.env.KRAMER);
+        console.log("Kramer's total units: ", units);
+        expect(units).to.equal(11);
       });
 
     }); // end describe

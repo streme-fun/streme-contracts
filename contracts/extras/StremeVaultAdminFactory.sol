@@ -51,6 +51,10 @@ contract StremeVaultAdmin is AccessControl {
         vault.updateMemberUnitsBatch(token, address(this), members, newUnits);
     }
 
+    function getUnits(address token, address member) external view returns (uint128) {
+        return vault.getUnits(token, address(this), member);
+    }
+
     function withdrawERC20(address token, address to, uint256 amount) external onlyAdmin {
         IERC20(token).transfer(to, amount);
     }
