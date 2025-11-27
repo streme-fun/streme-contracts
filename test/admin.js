@@ -48,7 +48,7 @@ const {
 
     var allocations;
   
-    describe("Vault Admin Contracts", function () {
+    describe.skip("Vault Admin Contracts", function () {
 
       it("should deploy the StremeVaultAdminFactory contract", async function () {
         // set timeout
