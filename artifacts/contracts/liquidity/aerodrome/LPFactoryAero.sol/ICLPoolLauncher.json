@@ -1,0 +1,126 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ICLPoolLauncher",
+  "sourceName": "contracts/liquidity/aerodrome/LPFactoryAero.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "internalType": "address",
+              "name": "poolLauncherToken",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "tokenToPair",
+              "type": "address"
+            },
+            {
+              "internalType": "int24",
+              "name": "tickSpacing",
+              "type": "int24"
+            },
+            {
+              "components": [
+                {
+                  "internalType": "uint256",
+                  "name": "amountPoolLauncherToken",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amountTokenToPair",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amountPoolLauncherTokenMin",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint256",
+                  "name": "amountTokenToPairMin",
+                  "type": "uint256"
+                },
+                {
+                  "internalType": "uint160",
+                  "name": "initialSqrtPriceX96",
+                  "type": "uint160"
+                },
+                {
+                  "internalType": "int24",
+                  "name": "tickLower",
+                  "type": "int24"
+                },
+                {
+                  "internalType": "int24",
+                  "name": "tickUpper",
+                  "type": "int24"
+                },
+                {
+                  "internalType": "uint32",
+                  "name": "lockDuration",
+                  "type": "uint32"
+                }
+              ],
+              "internalType": "struct ICLPoolLauncher.LiquidityParams",
+              "name": "liquidity",
+              "type": "tuple"
+            }
+          ],
+          "internalType": "struct ICLPoolLauncher.LaunchParams",
+          "name": "_params",
+          "type": "tuple"
+        },
+        {
+          "internalType": "address",
+          "name": "_recipient",
+          "type": "address"
+        }
+      ],
+      "name": "launch",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint32",
+              "name": "createdAt",
+              "type": "uint32"
+            },
+            {
+              "internalType": "address",
+              "name": "pool",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "poolLauncherToken",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "tokenToPair",
+              "type": "address"
+            }
+          ],
+          "internalType": "struct ICLPoolLauncher.PoolLauncherPool",
+          "name": "",
+          "type": "tuple"
+        },
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

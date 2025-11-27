@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "Path",
+  "sourceName": "contracts/interfaces/Path.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea2646970667358221220e540c40f9cd18cdc1aba4b8315e3dbfaf58da7e3c519662723418e81e88d042164736f6c634300081a0033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220e540c40f9cd18cdc1aba4b8315e3dbfaf58da7e3c519662723418e81e88d042164736f6c634300081a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
