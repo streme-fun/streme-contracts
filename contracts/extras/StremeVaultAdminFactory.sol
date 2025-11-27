@@ -8,6 +8,7 @@ interface IStremeVault {
     function editAllocationAdmin(address token, address oldAdmin, address newAdmin) external;
     function updateMemberUnits(address token, address admin, address member, uint128 newUnits) external;
     function updateMemberUnitsBatch(address token, address admin, address[] calldata members, uint128[] calldata newUnits) external;
+    function getUnits(address token,  address admin, address member) external view returns (uint128);
 }
 
 contract StremeVaultAdmin is AccessControl {
@@ -25,15 +26,29 @@ contract StremeVaultAdmin is AccessControl {
         _grantRole(ADMIN_ROLE, admin);
     }
 
-    function editAllocationAdmin(address token, address oldAdmin, address newAdmin) external onlyAdmin {
-        vault.editAllocationAdmin(token, oldAdmin, newAdmin);
+    function editAllocationAdmin(address token, address newAdmin) external onlyAdmin {
+        vault.editAllocationAdmin(token, address(this), newAdmin);
     }
 
-    function updateMemberUnits(address token, address admin, address member, uint128 newUnits) external onlyAdmin {
-        vault.updateMemberUnits(token, admin, member, newUnits);
+    function updateMemberUnits(address token, address member, uint128 newUnits) external onlyAdmin {
+        vault.updateMemberUnits(token, address(this), member, newUnits);
     }
-    function updateMemberUnitsBatch(address token, address admin, address[] calldata members, uint128[] calldata newUnits) external onlyAdmin {
-        vault.updateMemberUnitsBatch(token, admin, members, newUnits);
+    function updateMemberUnitsBatch(address token, address[] calldata members, uint128[] calldata newUnits) external onlyAdmin {
+        vault.updateMemberUnitsBatch(token, address(this), members, newUnits);
+    }
+
+    function addMemberUnits(address token, address member, uint128 unitsToAdd) public onlyAdmin {
+        uint128 existingUnits = vault.getUnits(token, address(this), member);
+        vault.updateMemberUnits(token, address(this), member, existingUnits + unitsToAdd);
+    }
+
+    function addMemberUnitsBatch(address token, address[] calldata members, uint128[] calldata unitsToAdd) public onlyAdmin {
+        uint128[] memory newUnits = new uint128[](members.length);
+        for (uint256 i = 0; i < members.length; i++) {
+            uint128 existingUnits = vault.getUnits(token, address(this), members[i]);
+            newUnits[i] = existingUnits + unitsToAdd[i];
+        }
+        vault.updateMemberUnitsBatch(token, address(this), members, newUnits);
     }
 
     function withdrawERC20(address token, address to, uint256 amount) external onlyAdmin {
