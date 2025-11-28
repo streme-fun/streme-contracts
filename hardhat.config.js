@@ -27,7 +27,7 @@ module.exports = {
       forking: {
         url: process.env.API_URL_BASE,
         ignoreUnknownTxType: true,
-        blockNumber: 38213276        // assumes Base fork
+        blockNumber: 38777563        // assumes Base fork
       },
       gasMultiplier: 2,
       initialBaseFeePerGas: 0, //14689933,
