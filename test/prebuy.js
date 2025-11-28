@@ -229,15 +229,15 @@ const {
         const stremeDeployV2 = new ethers.Contract(addr.stremeDeployV2, stremeDeployV2JSON.abi, signer);
         console.log("Using StremeDeployV2 at: ", addr.stremeDeployV2);
         var poolConfig = {
-            "tick": -230400,
+            "tick": -230500,
             "pairedToken": addr.pairedToken,
-            "devBuyFee": 10000
+            "devBuyFee": 20000
         };
         const tokenConfig = {
             "_name": addr.preBuyTokenName,
             "_symbol": addr.preBuyTokenSymbol,
             "_supply": ethers.parseEther("100000000000"), // 100 billion
-            "_fee": 10000,
+            "_fee": 20000,
             "_salt": addr.preBuySalt,
             "_deployer": addr.preBuyDeployer,
             "_fid": 8685,
@@ -297,6 +297,8 @@ const {
                 )
             }
         ];
+
+        addr.lpFactory = process.env.STREME_LP_FACTORY_AERO; // use Aero LP factory
 
         console.log(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, addr.preBuyAddress, tokenConfig, allocations);
         await (await stremeDeployV2.deployWithAllocations(addr.tokenFactory, addr.postDeployFactory, addr.lpFactory, addr.preBuyAddress, tokenConfig, allocations)).wait();

@@ -62,7 +62,7 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
     bool public active; // whether the pre-buy is active
 
     IGDAv1Forwarder public constant gdaForwarder = IGDAv1Forwarder(0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08);
-    IStremeZap public constant zap = IStremeZap(0x16a97D6924Ff246DD57eB78Ae993f91c23422F25); // Streme Zap contract
+    IStremeZap public constant zap = IStremeZap(0x47217096d8fe0FfECCCf2701e9c450658A93b59a); // Streme Zap contract
     IStremeVault public constant stremeVault = IStremeVault(0xDa902C1F73160daDE69AB3c3355110442359EB70); // Streme Vault contract
     address public constant streme = 0x5797A398fe34260f81Be65908DA364CC18FBc360; // Streme
 
