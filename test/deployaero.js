@@ -86,8 +86,8 @@ const {
           };
         }
         const tokenConfig = {
-            "_name": "Plane Token",
-            "_symbol": "PLANE",
+            "_name": "Planet Token",
+            "_symbol": "PLANET",
             "_supply": ethers.parseEther("100000000000"), // 100 billion
             "_fee": 20000,
             "_salt": "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -122,19 +122,19 @@ const {
             {
                 allocationType: 0, // Vault
                 admin: process.env.GEORGE, // beneficiary address
-                percentage: 20, // 20%
+                percentage: 10, // 10%
                 data: ethers.AbiCoder.defaultAbiCoder().encode(
                     ["uint256", "uint256"],
-                    [30*days, 365*days] // 30 day cliff, 365 day vesting
+                    [37*days, 90*days] // 37 day cliff, 90 day vesting
                 )
             },
             {
                 allocationType: 0, // Vault
                 admin: process.env.KRAMER, // beneficiary address
-                percentage: 20, // 20%
+                percentage: 27, // 27%
                 data: ethers.AbiCoder.defaultAbiCoder().encode(
                     ["uint256", "uint256"],
-                    [1, 0] // no lock, no vesting ... needs special approval (for now at least)
+                    [37*days, 90*days] // 37 day cliff, 90 day vesting
                 )
             },
             {
@@ -143,7 +143,7 @@ const {
                 percentage: 5, // 5%
                 data: ethers.AbiCoder.defaultAbiCoder().encode(
                     ["uint256", "int96"],
-                    [1*days, 365*days] // 1 day lockup, 365 days for staking rewards stream
+                    [37*days, 365*days] // 37 day lockup, 365 days for staking rewards stream
                 )
             }
         ];
