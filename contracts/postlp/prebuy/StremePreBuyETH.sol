@@ -160,11 +160,24 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
             preBuySettings.vestingDuration
         );
 
-        uint128[] memory units = new uint128[](depositors.length);
+        if (depositors.length <= 100) {
+            _distributeShares(0, depositors.length);
+        }
+
+        emit PreBuyFinalized(ethBalance, tokenBalance);
+    }
+
+    function distributeShares(uint256 offset, uint256 limit) external onlyRole(MANAGER_ROLE) {
+        _distributeShares(offset, limit);
+    }
+
+    function _distributeShares(uint256 offset, uint256 limit) internal {
+        address[] memory paginatedDepositors = getPaginatedItems(offset, limit);
+        uint128[] memory units = new uint128[](paginatedDepositors.length);
 
         // allocate vault tokens to depositors based on their ETH deposits
-        for (uint i = 0; i < depositors.length; i++) {
-            address user = depositors[i];
+        for (uint i = 0; i < paginatedDepositors.length; i++) {
+            address user = paginatedDepositors[i];
             uint256 userDeposit = deposits[user];
             units[i] = uint128(userDeposit);
             // zero out deposit to prevent re-entrancy issues
@@ -173,21 +186,43 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
 
         // update member units in vault
         stremeVault.updateMemberUnitsBatch(
-            address(stremeCoin),
+            token,
             address(this),
-            depositors,
+            paginatedDepositors,
             units
         );
 
         // remove unit from admin (this contract)
         stremeVault.updateMemberUnits(
-            address(stremeCoin),
+            token,
             address(this),
             address(this),
             0
         );
+    }
 
-        emit PreBuyFinalized(ethBalance, tokenBalance);
+    // Function to retrieve a paginated subset of the array
+    function getPaginatedItems(uint256 _offset, uint256 _limit) 
+        public 
+        view 
+        returns (address[] memory) 
+    {
+        require(_offset < depositors.length || depositors.length == 0, "Offset out of bounds");
+
+        uint256 endIndex = _offset + _limit;
+        if (endIndex > depositors.length) {
+            endIndex = depositors.length;
+        }
+
+        address[] memory paginatedResult = new address[](endIndex - _offset);
+        for (uint256 i = _offset; i < endIndex; i++) {
+            paginatedResult[i - _offset] = depositors[i];
+        }
+        return paginatedResult;
+    }
+
+    function totalMembers() external view returns (uint256) {
+        return depositors.length;
     }
 
     function membersWithUnits() external view returns (address[] memory, uint128[] memory units) {
