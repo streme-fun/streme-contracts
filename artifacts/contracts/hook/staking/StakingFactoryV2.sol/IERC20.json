@@ -1,7 +1,7 @@
 {
   "_format": "hh-sol-artifact-1",
   "contractName": "IERC20",
-  "sourceName": "contracts/hook/staking/StakingFactoryV2.sol",
+  "sourceName": "contracts/hook/staking/StakingFactoryv2.sol",
   "abi": [
     {
       "inputs": [
