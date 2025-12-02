@@ -56,7 +56,7 @@ const {
 
     var allocations;
   
-    describe("Aerodrome Deploy", function () {
+    describe.skip("Aerodrome Deploy", function () {
 
       it("should deploy a token with 2 vaults + staking via StremeDeployV2", async function () {
         const stremeJSON = require("../artifacts/contracts/Streme.sol/Streme.json");

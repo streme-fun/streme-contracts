@@ -55,7 +55,7 @@ const {
 
     var allocations;
   
-    describe.skip("Aerodrome LP", function () {
+    describe("Aerodrome LP", function () {
 
       it("should deploy StremeFeeCollector contract", async function () {
         // set timeout for deployment
@@ -527,5 +527,34 @@ const {
         console.log("Change in George's erc20 weth balance:", georgeWethBalanceAfter - georgeWethBalanceBefore);
         expect(georgeWethBalanceAfter).to.be.gt(georgeWethBalanceBefore);
       });
+
+      it("should transfer ownership of locker on StremeFeeCollector", async function () {
+        // set timeout for deployment
+        this.timeout(600000);
+        const [one, two, george] = await ethers.getSigners();
+        var signer;
+        if (chain == "localhost") {
+          signer = one;
+        } else {
+          signer = one;
+        }
+        // StremeFeeCollector contract
+        const stremeFeeCollectorJSON = require("../artifacts/contracts/liquidity/fees/StremeFeeCollector.sol/StremeFeeCollector.json");
+        const stremeFeeCollector = new ethers.Contract(addr.stremeFeeCollector, stremeFeeCollectorJSON.abi, signer);
+        const tx = await stremeFeeCollector.transferLocker(
+          addr.tokenAddress,
+          process.env.GEORGE
+        );
+        const receipt = await tx.wait();
+        console.log("Transferred ownership of locker on StremeFeeCollector for token:", addr.tokenAddress);
+        // check owner() on locker
+        const feeCollectionStrategy = await stremeFeeCollector.feeCollectionStrategies(addr.tokenAddress);
+        const lockerAddress = feeCollectionStrategy.locker;
+        const lockerABI = [ "function owner() view returns (address)" ];
+        const locker = new ethers.Contract(lockerAddress, lockerABI, signer);
+        const lockerOwner = await locker.owner();
+        console.log("Locker owner is now:", lockerOwner);
+        expect(lockerOwner).to.equal(process.env.GEORGE);
+      }); // it should transfer ownership of locker on StremeFeeCollector
 
     }); // describe Aerodrome LP

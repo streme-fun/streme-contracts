@@ -41,4 +41,4 @@ module.exports = buildModule("StremeFeeCollectorModule", (m) => {
   return { feeCollector, feeDistributorTransfer };
 });
 
-// npx hardhat ignition deploy ignition/modules/StremeFeeCollector.js --network base --deployment-id fee-collector-base-one
+// npx hardhat ignition deploy ignition/modules/StremeFeeCollector.js --network base --deployment-id fee-collector-base-three

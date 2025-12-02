@@ -288,10 +288,28 @@ contract StremeFeeCollector is AccessControl, IStremeFeeCollector, IERC721Receiv
             distributor: distributor,
             data: data
         });
-    }   
+    }
+
+    function setFeeStreamer(IStremeFeeStreamer _feeStreamer) external onlyRole(MANAGER_ROLE) {
+        feeStreamer = _feeStreamer;
+    }
+
+    function setTeamReward(uint256 teamReward) external onlyRole(MANAGER_ROLE) {
+        _teamReward = teamReward;
+    }
+
+    function setTeamRecipient(address teamRecipient) external onlyRole(MANAGER_ROLE) {
+        _teamRecipient = teamRecipient;
+    }
 
     function approveDistributor(address distributor, bool approved) external onlyRole(MANAGER_ROLE) {
         approvedDistributors[distributor] = approved;
+    }
+
+    function transferLocker(address stremeCoin, address newOwner) external onlyRole(MANAGER_ROLE) {
+        FeeCollectionStrategy memory strategy = feeCollectionStrategies[stremeCoin];
+        require(strategy.locker != address(0), "No locker set");
+        ILocker(strategy.locker).transferOwnership(newOwner);
     }
 
     function locker(address stremeCoin) external view returns (address) {
