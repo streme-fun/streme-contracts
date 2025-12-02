@@ -161,7 +161,7 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
             preBuySettings.vestingDuration
         );
 
-        if (depositors.length <= 100) {
+        if (depositors.length <= shareDistributionThreshold) {
             _distributeShares(0, depositors.length);
         }
 
