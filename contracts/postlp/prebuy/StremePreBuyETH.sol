@@ -69,6 +69,7 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
     // @dev accounting:
     mapping(address => uint256) public deposits; // user address => amount of ETH deposited
     address[] public depositors; // list of depositors
+    uint256 public shareDistributionThreshold; // number of depositors below which shares are distributed automatically
 
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
@@ -91,7 +92,7 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
         _grantRole(MANAGER_ROLE, admin);
         _grantRole(DEPLOYER_ROLE, streme);
         active = true;
-        // TODO: factory must register this postLPHook with Streme
+        shareDistributionThreshold = 50; // default to 50
     }
 
     /**
@@ -219,6 +220,10 @@ contract StremePreBuyETH is AccessControlUpgradeable, PausableUpgradeable {
             paginatedResult[i - _offset] = depositors[i];
         }
         return paginatedResult;
+    }
+
+    function setShareDistributionThreshold(uint256 threshold) external onlyRole(MANAGER_ROLE) {
+        shareDistributionThreshold = threshold;
     }
 
     function totalMembers() external view returns (uint256) {
