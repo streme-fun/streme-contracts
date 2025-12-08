@@ -5,6 +5,7 @@ artifacts/*
 ignition/deployments/
 test/v2deploy.js
 test/v2deploy2.js
+test/v2deploy3.js
 
 
 # Logs
