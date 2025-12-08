@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "BytesLib",
+  "sourceName": "contracts/liquidity/aerodrome/interfaces/BytesLib.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea2646970667358221220910d42427ff470f1b4ef6dba12a9e0e0258fb45999eda7cc4e2eff9bfcd5d0c164736f6c634300081a0033",
+  "deployedBytecode": "0x600080fdfea2646970667358221220910d42427ff470f1b4ef6dba12a9e0e0258fb45999eda7cc4e2eff9bfcd5d0c164736f6c634300081a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
