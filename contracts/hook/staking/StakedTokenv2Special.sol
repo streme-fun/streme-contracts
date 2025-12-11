@@ -99,10 +99,6 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     }
 
     function stake(address to, uint256 amount) external nonReentrant {
-        // @dev only MANAGER_ROLE can stake to another address
-        if (to != msg.sender) {
-            require(hasRole(MANAGER_ROLE, msg.sender), "StakedToken: only MANAGER_ROLE can stake to another address");
-        }
         _stake(to, amount);
     }
 
@@ -157,24 +153,15 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     }
 
     function claimStakeFromUnits(address to) external nonReentrant {
+        require(balanceOf(to) == 0, "can only claim once");
         uint256 timestamp = originalStakedToken.depositTimestamps(to);
         _stakeFromUnits(to, timestamp);
     }
 
     function _stakeFromUnits(address to, uint256 timestamp) internal {
-        // @dev have they delagated on original staked token?
-        address originalDelegate = originalStakedToken.delegates(to);
-        uint128 units;
-        if (originalDelegate != address(0)) {
-            units = pool.getUnits(originalDelegate);
-        } else {
-            units = pool.getUnits(to);
-        }
+        uint128 units = pool.getUnits(to);
         // @dev convert to tokens
         uint256 tokensOwed = _unitsToTokens(units);
-        // @dev now subtract any tokens already held by the user
-        tokensOwed = tokensOwed > balanceOf(to) ? tokensOwed - balanceOf(to) : 0;
-        require(tokensOwed > 0, "StakedToken: already staked from units");
         _mint(to, tokensOwed);
         depositTimestamps[to] = timestamp;
         emit Deposit(to, timestamp, tokensOwed);

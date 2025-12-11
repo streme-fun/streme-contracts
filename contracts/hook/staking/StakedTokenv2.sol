@@ -90,10 +90,6 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
     }
 
     function stake(address to, uint256 amount) external nonReentrant {
-        // @dev only MANAGER_ROLE can stake to another address
-        if (to != msg.sender) {
-            require(hasRole(MANAGER_ROLE, msg.sender), "StakedToken: only MANAGER_ROLE can stake to another address");
-        }
         _stake(to, amount);
     }
 
