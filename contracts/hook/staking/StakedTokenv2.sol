@@ -45,6 +45,15 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
     );
 
     /**
+     * 
+     * @dev Staking rewards have been delegated 
+     */
+    event Delegated(
+        address indexed delegator,
+        address indexed delegatee
+    );
+
+    /**
      *  @dev The lock duration has been updated
      */
     event LockDurationUpdated(uint256 duration);
@@ -81,6 +90,14 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
     }
 
     function stake(address to, uint256 amount) external nonReentrant {
+        // @dev only MANAGER_ROLE can stake to another address
+        if (to != msg.sender) {
+            require(hasRole(MANAGER_ROLE, msg.sender), "StakedToken: only MANAGER_ROLE can stake to another address");
+        }
+        _stake(to, amount);
+    }
+
+    function _stake(address to, uint256 amount) internal {
         stakeableToken.transferFrom(msg.sender, address(this), amount);  // Transfer the stakable token to this contract
         _mint(to, amount);
         depositTimestamps[to] = block.timestamp;
@@ -94,6 +111,10 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
     }
 
     function delegate(address to) external {
+        _delegate(to);
+    }
+
+    function _delegate(address to) internal {
         require(to != address(0), "StakedToken: delegate to the zero address");
         uint128 units = _units(balanceOf(msg.sender));
         // existing delegate?
@@ -112,12 +133,13 @@ contract StakedTokenV2 is ERC20Upgradeable, ERC20BurnableUpgradeable, Reentrancy
             pool.updateMemberUnits(to, pool.getUnits(to) + units);
         }
         delegates[msg.sender] = to == msg.sender ? address(0) : to;
+        emit Delegated(msg.sender, to);
     }
 
     function stakeAndDelegate(address delegateTo, uint256 amount) external {
-        this.stake(msg.sender, amount);
+        _stake(msg.sender, amount);
         if (delegateTo != msg.sender) {
-            this.delegate(delegateTo);
+            _delegate(delegateTo);
         }
     }
 
