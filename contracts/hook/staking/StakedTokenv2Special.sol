@@ -131,15 +131,15 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
             // remove the units from the current delegate
             uint128 currentUnits = pool.getUnits(delegates[msg.sender]);
             if (currentUnits > 0) {
-                pool.updateMemberUnits(delegates[msg.sender], currentUnits - units);
+                originalStakedToken.updateMemberUnits(delegates[msg.sender], currentUnits - units);
             }
             // add the units to the new delegate
-            pool.updateMemberUnits(to, pool.getUnits(to) + units);
+            originalStakedToken.updateMemberUnits(to, pool.getUnits(to) + units);
         } else {
             // remove the units from the sender
-            pool.updateMemberUnits(msg.sender, pool.getUnits(msg.sender) - units);
+            originalStakedToken.updateMemberUnits(msg.sender, pool.getUnits(msg.sender) - units);
             // add units to new delegate
-            pool.updateMemberUnits(to, pool.getUnits(to) + units);
+            originalStakedToken.updateMemberUnits(to, pool.getUnits(to) + units);
         }
         delegates[msg.sender] = to == msg.sender ? address(0) : to;
         emit Delegated(msg.sender, to);
@@ -217,7 +217,7 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     }
 
     function updateMemberUnits(address memberAddr, uint128 newUnits) external onlyRole(MANAGER_ROLE) {
-        pool.updateMemberUnits(memberAddr, newUnits);
+        originalStakedToken.updateMemberUnits(memberAddr, newUnits);
     }
 
     function _update(address from, address to, uint256 amount)
@@ -237,13 +237,13 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
             if (senderUnits > 0) {
                 // newUnits is max(0, senderUnits - transferUnits):                
                 uint128 newUnits = senderUnits > transferUnits ? senderUnits - transferUnits : 0;
-                pool.updateMemberUnits(from, newUnits);
+                originalStakedToken.updateMemberUnits(from, newUnits);
             }
         }
         // now adjust recipient's units:
         if (to != address(0)) {
             uint128 recipientUnits = pool.getUnits(to);
-            pool.updateMemberUnits(to, recipientUnits + transferUnits);
+            originalStakedToken.updateMemberUnits(to, recipientUnits + transferUnits);
         }
     }
 }
