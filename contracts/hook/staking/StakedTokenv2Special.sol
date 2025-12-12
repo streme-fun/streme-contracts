@@ -81,14 +81,15 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     function initialize( 
         string memory _name, 
         string memory _symbol, 
-        address _stakeableToken
+        address _stakeableToken,
+        address _originalStakedTokenAddress
     ) initializer public {
         __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
         __ReentrancyGuard_init();
         __AccessControl_init();
         _grantRole(MANAGER_ROLE, msg.sender);
-        originalStakedToken = IStakedTokenv2(IStakingFactoryv2(stakingFactory).predictStakedTokenAddress(_stakeableToken));
+        originalStakedToken = IStakedTokenv2(_originalStakedTokenAddress);
         stakeableToken = IERC20(_stakeableToken);
         pool = IDistributionPool(originalStakedToken.pool());
         lockDuration = originalStakedToken.lockDuration();
