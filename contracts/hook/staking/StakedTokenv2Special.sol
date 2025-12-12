@@ -18,6 +18,8 @@ interface IStakedTokenv2 {
     function depositTimestamps(address account) external view returns (uint256);
     function delegates(address account) external view returns (address);
     function pool() external view returns (address);
+    function balanceOf(address account) external view returns (uint256);
+    function unlockDate(address account) external view returns (uint256);
 }
 
 interface IStakingFactoryv2 {
@@ -34,6 +36,7 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     mapping(address => address) public delegates;
     address public stakingFactory;
     IStakedTokenv2 public originalStakedToken;
+    mapping(address => bool) public migrated;
 
     /**
      * @dev Lock duration in seconds, period starts after the deposit timestamp
@@ -149,23 +152,43 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
         }
     }
 
-    function stakeWithTimestamp(address to, uint256 timestamp) external onlyRole(MANAGER_ROLE) {
+    function migrateWithTimestamp(address to, uint256 timestamp) external onlyRole(MANAGER_ROLE) {
+        require(!migrated[to], "can only claim once");
+        migrated[to] = true;
         _stakeFromUnits(to, timestamp);
     }
 
-    function claimStakeFromUnits(address to) external nonReentrant {
-        require(balanceOf(to) == 0, "can only claim once");
+    function migrate(address to) external nonReentrant {
+        require(!migrated[to], "can only claim once");
+        migrated[to] = true;
         uint256 timestamp = originalStakedToken.depositTimestamps(to);
-        _stakeFromUnits(to, timestamp);
+        if (timestamp != 0) {
+            _stakeFromUnits(to, timestamp);
+        }
+    }
+
+    function _migrate(address account) internal {
+        if (migrated[account] || account == address(0)) {
+            return;
+        }
+        migrated[account] = true;
+        if (super.balanceOf(account) == 0) {
+            uint256 timestamp = originalStakedToken.depositTimestamps(account);
+            if (timestamp != 0) {
+                _stakeFromUnits(account, timestamp);
+            }
+        }
     }
 
     function _stakeFromUnits(address to, uint256 timestamp) internal {
         uint128 units = pool.getUnits(to);
-        // @dev convert to tokens
-        uint256 tokensOwed = _unitsToTokens(units);
-        _mint(to, tokensOwed);
-        depositTimestamps[to] = timestamp;
-        emit Deposit(to, timestamp, tokensOwed);
+        if (units != 0) {
+            // @dev convert to tokens
+            uint256 tokensOwed = _unitsToTokens(units);
+            _mint(to, tokensOwed);
+            depositTimestamps[to] = timestamp;
+            emit Deposit(to, timestamp, tokensOwed);
+        }
     }
 
     function tokensToUnits(uint256 amount) external view returns (uint128) {
@@ -181,7 +204,16 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     }
 
     function unlockDate(address account) external view returns (uint256) {
-        return depositTimestamps[account] == 0 ? 0 : depositTimestamps[account] + lockDuration;
+        if (migrated[account]) {
+            return depositTimestamps[account] == 0 ? 0 : depositTimestamps[account] + lockDuration;
+        } else {
+            uint128 units = pool.getUnits(account);
+            if (units == 0) {
+                return 0;
+            } else {
+                return originalStakedToken.unlockDate(account);
+            }
+        }
     }
 
     /**
@@ -208,10 +240,25 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
         originalStakedToken.updateMemberUnits(memberAddr, newUnits);
     }
 
+    function balanceOf(address account) public view override returns (uint256) {
+        if (migrated[account] || super.balanceOf(account) > 0) {
+            return super.balanceOf(account);
+        } else {
+            // @dev check for pool units
+            uint128 units = pool.getUnits(account);
+            return _unitsToTokens(units);
+        }
+    }
+
     function _update(address from, address to, uint256 amount)
         internal
         override(ERC20Upgradeable)
     {
+        if (from == address(0)) {
+            _migrate(to);
+        } else {
+            _migrate(from);
+        }
         super._update(from, to, amount);
         if (from != address(0)) {
             require(block.timestamp > depositTimestamps[from] + lockDuration, "StakedToken: tokens are still locked");
