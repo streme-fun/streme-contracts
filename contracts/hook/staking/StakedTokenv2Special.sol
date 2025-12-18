@@ -2,6 +2,9 @@
 // Compatible with OpenZeppelin Contracts ^5.0.0
 pragma solidity ^0.8.22;
 
+// hardhat console import
+import "hardhat/console.sol";
+
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {ERC20Upgradeable, IERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
@@ -103,11 +106,13 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     }
 
     function stake(address to, uint256 amount) external nonReentrant {
+        console.log("StakedTokenV2Special: stake called with to:", to, " amount:", amount);
         _stake(to, amount);
     }
 
     function _stake(address to, uint256 amount) internal {
         stakeableToken.transferFrom(msg.sender, address(this), amount);  // Transfer the stakable token to this contract
+        console.log("StakedTokenV2Special: transferred stakeable tokens ");
         _mint(to, amount);
         depositTimestamps[to] = block.timestamp;
         emit Deposit(to, block.timestamp, amount);
@@ -168,12 +173,15 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     }
 
     function _migrate(address account) internal {
+        console.log("migrated[account]:", migrated[account]);
+        console.log("account:", account);
         if (migrated[account] || account == address(0)) {
             return;
         }
         migrated[account] = true;
         if (super.balanceOf(account) == 0) {
             uint256 timestamp = originalStakedToken.depositTimestamps(account);
+            console.log("_migrate: original deposit timestamp:", timestamp);
             if (timestamp != 0) {
                 _stakeFromUnits(account, timestamp);
             }
@@ -182,6 +190,7 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
 
     function _stakeFromUnits(address to, uint256 timestamp) internal {
         uint128 units = pool.getUnits(to);
+        console.log("_stakeFromUnits: units to migrate:", units);
         if (units != 0) {
             // @dev convert to tokens
             uint256 tokensOwed = _unitsToTokens(units);
@@ -250,10 +259,17 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
         }
     }
 
+    function trueBalanceOf(address account) public view returns (uint256) {
+        return super.balanceOf(account);
+    }
+
     function _update(address from, address to, uint256 amount)
         internal
         override(ERC20Upgradeable)
     {
+        console.log("StakedTokenV2Special: _update called from:", from);
+        console.log("StakedTokenV2Special: _update called to:", to);
+        console.log("StakedTokenV2Special: _update called amount:", amount);    
         if (from == address(0)) {
             _migrate(to);
         } else {
