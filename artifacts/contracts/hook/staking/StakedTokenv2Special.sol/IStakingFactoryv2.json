@@ -1,0 +1,43 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "IStakingFactoryv2",
+  "sourceName": "contracts/hook/staking/StakedTokenv2Special.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "stakeableToken",
+          "type": "address"
+        }
+      ],
+      "name": "predictStakedTokenAddress",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "teamRecipient",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
