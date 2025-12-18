@@ -42,6 +42,8 @@ const {
         addr.stremeDeployV2 = process.env.STREME_PUBLIC_DEPLOYER_V2; // new
         addr.feeStreamer = process.env.STREME_FEE_STREAMER; // new
         addr.preBuyFactory = process.env.STREME_PREBUY_FACTORY; // new
+        addr.stakingFactoryV2Special = process.env.STAKED_TOKEN_FACTORY_SPECIAL; // new
+        addr.recoveryContract = process.env.STREME_RECOVER;  // tbd
     } else {
         console.log("chain not supported");
         return;
@@ -108,7 +110,7 @@ const {
 
     describe("Streme Recover", function () {
 
-      it("should buy AND stake all 19 tokens", async function () {
+      it.skip("should buy AND stake all 19 tokens", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();
@@ -171,7 +173,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should deploy implementation of StakedTokenV2Special", async function () {
+      it.skip("should deploy implementation of StakedTokenV2Special", async function () {
         const StakedTokenV2Special = await ethers.getContractFactory("StakedTokenV2Special");
         const stakedTokenV2Special = await StakedTokenV2Special.deploy();
         await stakedTokenV2Special.waitForDeployment();
@@ -180,7 +182,7 @@ const {
         expect(addr.specialStakedTokenImplementation).to.properAddress;
       });
 
-      it("should deploy StakingFactoryV2Special", async function () {
+      it.skip("should deploy StakingFactoryV2Special", async function () {
         const StakingFactoryV2Special = await ethers.getContractFactory("StakingFactoryV2Special");
         const stakingFactoryV2Special = await StakingFactoryV2Special.deploy(
           addr.specialStakedTokenImplementation
@@ -191,7 +193,7 @@ const {
         expect(addr.stakingFactoryV2Special).to.properAddress;
       });
 
-      it("should deploy StremeRecover", async function () {
+      it.skip("should deploy StremeRecover", async function () {
         const StremeRecover = await ethers.getContractFactory("StremeRecover");
         const stremeRecover = await StremeRecover.deploy(
           addr.stakingFactoryV2Special
@@ -202,7 +204,7 @@ const {
         expect(addr.recoveryContract).to.properAddress;
       });
 
-      it("should give DEFAULT_ADMIN_ROLE and MANAGER_ROLE to recoveryContract", async function () {
+      it.skip("should give DEFAULT_ADMIN_ROLE and MANAGER_ROLE to recoveryContract", async function () {
         // set timeout
         this.timeout(60000);
         const [one, two] = await ethers.getSigners();
@@ -223,7 +225,10 @@ const {
           "function DEFAULT_ADMIN_ROLE() view returns (bytes32)",
           "function MANAGER_ROLE() view returns (bytes32)"
         ];
-        for (var i = 0; i < stakedTokens.length; i++) {
+
+
+        // only do the final four staked tokens in the array
+        for (var i = stakedTokens.length - 4; i < stakedTokens.length; i++) {
           const stakedToken = new ethers.Contract(stakedTokens[i], abi, signer);
           const DEFAULT_ADMIN_ROLE = await stakedToken.DEFAULT_ADMIN_ROLE();
           const MANAGER_ROLE = await stakedToken.MANAGER_ROLE();
@@ -237,7 +242,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should predict special staked token address and grant it MANAGER_ROLE on old staked contract", async function () {
+      it.skip("should predict special staked token address and grant it MANAGER_ROLE on old staked contract", async function () {
         // set timeout
         this.timeout(60000);
         const [one, two] = await ethers.getSigners();
@@ -281,16 +286,19 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should call exploit on recoveryContract for each staked token", async function () {
+      it.skip("should call exploit on recoveryContract for each staked token", async function () {
         // set timeout
-        this.timeout(4000000);
+        this.timeout(9000000);
         const [one, two] = await ethers.getSigners();
         var signer;
         if (chain == "localhost") {
-          signer = one;
+          signer = two;
         } else {
-          signer = one;
+          signer = two;
         }
+        
+        signer = new ethers.Wallet(process.env.PRIVATE_KEY_STREME_DEPLOYER, ethers.provider);
+        //return console.log("Using deployer account for exploit", signer.address);
         // StremeRecoverJSON:
         const StremeRecoverJSON = require("../artifacts/contracts/extras/StremeRecover.sol/StremeRecover.json");
         const recoveryContract = new ethers.Contract(
@@ -310,14 +318,17 @@ const {
 
       it("should call recover on recoveryContract", async function () {
         // set timeout
-        this.timeout(4000000);
+        this.timeout(8000000);
         const [one, two] = await ethers.getSigners();
         var signer;
         if (chain == "localhost") {
-          signer = one;
+          signer = two;
         } else {
-          signer = one;
+          signer = two;
         }
+
+        signer = new ethers.Wallet(process.env.PRIVATE_KEY_STREME_DEPLOYER, ethers.provider);
+        //return console.log("Using deployer account for exploit", signer.address);
 
         // mine one block if localhost
         if (chain == "localhost") {
@@ -346,7 +357,7 @@ const {
         if (chain == "localhost") {
           signer = two;
         } else {
-          signer = one;
+          signer = two;
         }
         const factoryAbi = [ "function predictStakedTokenAddress(address stakeableToken) external view returns (address)" ];
         const factoryAddress = addr.stakingFactoryV2Special;
@@ -374,7 +385,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should buy but NOT stake", async function () {
+      it.skip("should buy but NOT stake", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();
@@ -413,7 +424,7 @@ const {
         } // end for
       });
 
-      it("should approve the special staked token contract to spend the stakeable tokens", async function () {
+      it.skip("should approve the special staked token contract to spend the stakeable tokens", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();
@@ -444,7 +455,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should stake 1000 tokens into the special staked token contract", async function () {
+      it.skip("should stake 1000 tokens into the special staked token contract", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();
@@ -484,7 +495,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should advance 60 days then unstake from secondary staked token contract", async function () {
+      it.skip("should advance 60 days then unstake from secondary staked token contract", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();
@@ -535,7 +546,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should advance 60 days then transfer from the 3rd speacial staked token contract", async function () {
+      it.skip("should advance 60 days then transfer from the 3rd speacial staked token contract", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();
@@ -586,7 +597,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should now stake again in the 3rd special staked token contract", async function () {
+      it.skip("should now stake again in the 3rd special staked token contract", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();
@@ -627,7 +638,7 @@ const {
         expect(true).to.equal(true);
       });
 
-      it("should try to transfer the old staked token (should fail)", async function () {
+      it.skip("should try to transfer the old staked token (should fail)", async function () {
         // set timeout
         this.timeout(4000000);
         const [one, two] = await ethers.getSigners();

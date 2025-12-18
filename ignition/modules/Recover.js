@@ -14,21 +14,16 @@ if (chain == "degen") {
 } else if (chain == "base" || chain == "localhost") {
   addr.gda = "0x6DA13Bde224A05a288748d857b9e7DDEffd1dE08"; // GDAForwarder on base chain
   addr.protocolSuperTokenFactory = process.env.SUPER_TOKEN_FACTORY;
+  addr.stakingFactoryV2Special = process.env.STAKED_TOKEN_FACTORY_SPECIAL;
 } else {
   console.log("chain not supported");
   return;
 }
 
-module.exports = buildModule("StakedTokenFactorySpecialModule", (m) => {
-  const staked = m.contract("StakedTokenV2Special", []);
-  console.log(`npx hardhat verify --network ${chain} ${staked.address}`);
-  const factory = m.contract("StakingFactoryV2Special", [staked], {
-    after: [staked]
-  });
-  console.log(`npx hardhat verify --network ${chain} ${factory.address} ${staked.address}`);
-  return { staked, factory };
+module.exports = buildModule("StremeRecoverModule", (m) => {
+  const recover = m.contract("StremeRecover", [addr.stakingFactoryV2Special]);
+  console.log(`npx hardhat verify --network ${chain} ${recover.address}`);
+  return { recover };
 });
 
-// npx hardhat ignition deploy ignition/modules/StakedTokenFactoryV2Special.js --network localhost --deployment-id stake-factory-local-one
-// npx hardhat ignition deploy ignition/modules/StakedTokenFactoryV2Special.js --network base --deployment-id stake-factory-base-one
-// npx hardhat ignition deploy ignition/modules/StakedTokenFactoryV2Special.js --network base --deployment-id stake-factory-base-two
+// npx hardhat ignition deploy ignition/modules/Recover.js --network base --deployment-id recover-base-one
