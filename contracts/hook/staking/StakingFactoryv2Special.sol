@@ -64,7 +64,7 @@ contract StakingFactoryV2Special is AccessControl {
 
         // @dev 3. Initialize the staked token
         string memory name = string(abi.encodePacked("New Staked ", IERC20(stakeableToken).name()));
-        string memory symbol = string(abi.encodePacked("st", IERC20(stakeableToken).symbol(), "new"));
+        string memory symbol = string(abi.encodePacked("stk", IERC20(stakeableToken).symbol()));
         IStakedToken(stakedToken).initialize(name, symbol, stakeableToken, orginalStakedToken);
 
         emit StakedTokenCreated(stakedToken, stakeableToken, supply);
