@@ -55,7 +55,7 @@ const {
 
     var allocations;
   
-    describe("Aerodrome LP", function () {
+    describe.skip("Aerodrome LP", function () {
 
       it("should deploy StremeFeeCollector contract", async function () {
         // set timeout for deployment

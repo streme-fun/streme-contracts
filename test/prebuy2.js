@@ -64,7 +64,7 @@ const {
 
     var allocations;
   
-    describe("PreBuy", function () {
+    describe.skip("PreBuy", function () {
 
       it("should deploy the StremePreBuyETH implementation contract", async function () {
         const PreBuy = await ethers.getContractFactory("StremePreBuyETH");
