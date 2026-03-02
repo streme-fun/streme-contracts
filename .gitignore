@@ -6,6 +6,8 @@ ignition/deployments/
 test/v2deploy.js
 test/v2deploy2.js
 test/v2deploy3.js
+test/v2deploy4.js
+test/v2deploy5.js
 
 
 # Logs
