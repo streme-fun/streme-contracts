@@ -1,0 +1,10 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "BatchOperation",
+  "sourceName": "contracts/extras/macros/StakingMacroV2.sol",
+  "abi": [],
+  "bytecode": "0x60808060405234601757603a9081601d823930815050f35b600080fdfe600080fdfea26469706673582212208923b52d91c26e1701b5b87edd179a5e38b24325ff68557f997dedffbd81b15364736f6c634300081a0033",
+  "deployedBytecode": "0x600080fdfea26469706673582212208923b52d91c26e1701b5b87edd179a5e38b24325ff68557f997dedffbd81b15364736f6c634300081a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

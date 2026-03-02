@@ -1,0 +1,35 @@
+{
+  "_format": "hh-sol-artifact-1",
+  "contractName": "ERC1820Implementer",
+  "sourceName": "contracts/extras/macros/StakingHelperV2.sol",
+  "abi": [
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "interfaceHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "canImplementInterfaceForAddress",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x60808060405234601557610101908161001b8239f35b600080fdfe6080806040526004361015601257600080fd5b60003560e01c63249cb3fa14602657600080fd5b3460c65760407ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011260c6576024359073ffffffffffffffffffffffffffffffffffffffff821680920360c65760209160043560005260008352604060002090600052825260ff6040600020541660001460c0577fa2ef4600d742022d532d4747cb3547474667d6f13804902513b2ec01c848f4b48152f35b60008152f35b600080fdfea26469706673582212205de09dfb751de3bf982a8d09cd12d4488d5d13e8714415de171bc36a9415b73d64736f6c634300081a0033",
+  "deployedBytecode": "0x6080806040526004361015601257600080fd5b60003560e01c63249cb3fa14602657600080fd5b3460c65760407ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc36011260c6576024359073ffffffffffffffffffffffffffffffffffffffff821680920360c65760209160043560005260008352604060002090600052825260ff6040600020541660001460c0577fa2ef4600d742022d532d4747cb3547474667d6f13804902513b2ec01c848f4b48152f35b60008152f35b600080fdfea26469706673582212205de09dfb751de3bf982a8d09cd12d4488d5d13e8714415de171bc36a9415b73d64736f6c634300081a0033",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}
