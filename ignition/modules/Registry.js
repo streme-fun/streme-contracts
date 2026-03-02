@@ -34,4 +34,4 @@ module.exports = buildModule("RegistryModule", (m) => {
   return { reg };
 });
 
-// npx hardhat ignition deploy ignition/modules/Registry.js --network base --deployment-id registry-new-one
+// npx hardhat ignition deploy ignition/modules/Registry.js --network base --deployment-id registry-new-two

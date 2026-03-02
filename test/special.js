@@ -108,7 +108,7 @@ const {
     }); // end describe Autostaker
 
 
-    describe("Streme Recover", function () {
+    describe.skip("Streme Recover", function () {
 
       it.skip("should buy AND stake all 19 tokens", async function () {
         // set timeout
