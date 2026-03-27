@@ -44,14 +44,16 @@ describe("Uniswap v4 Deploy", function () {
     await (await lpFactoryV4.grantRole(await lpFactoryV4.DEPLOYER_ROLE(), addr.streme)).wait();
 
     const poolConfig = {
-      tick: -230400,
+      tick: -230000,
       pairedToken: addr.pairedToken,
-      devBuyFee: 10000, // 1%
+      devBuyFee: 100000, // 10%
     };
 
+    const uniqueSuffix = Date.now().toString().slice(-6);
+    const symbol = `UV4${uniqueSuffix}`;
     const tokenConfig = {
-      _name: "UniV4 Planet",
-      _symbol: "UV4PLANET",
+      _name: `UniV4 Planet ${uniqueSuffix}`,
+      _symbol: symbol,
       _supply: ethers.parseEther("100000000000"),
       _fee: 10000,
       _salt: "0x0000000000000000000000000000000000000000000000000000000000000000",
