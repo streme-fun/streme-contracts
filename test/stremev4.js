@@ -7,7 +7,6 @@ const BASE_V4 = {
   positionManager: "0x7c5f5a4bbd8fd63184577525326123b519429bdc",
   poolManager: "0x498581ff718922c3f8e6a244956af099b2652b2b",
   weth: "0x4200000000000000000000000000000000000006",
-  usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
 };
 
 describe("Streme v4 (Base fork)", function () {
@@ -55,7 +54,7 @@ describe("Streme v4 (Base fork)", function () {
 
     const tx = await factory.createLP(
       token.target,
-      BASE_V4.usdc,
+      BASE_V4.weth,
       -230400,
       10000,
       supplyPerPool,
