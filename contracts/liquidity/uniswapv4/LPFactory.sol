@@ -57,7 +57,6 @@ contract LPFactory is AccessControl {
     ILpLockerv4 public liquidityLocker;
 
     mapping(uint24 fee => int24 tickSpacing) public feeAmountTickSpacing;
-    mapping(address token => bool approvedPermit2ForToken) public tokenPermit2Approved;
 
     struct DeploymentInfo {
         address token;
@@ -140,10 +139,7 @@ contract LPFactory is AccessControl {
         });
 
         // Required for v4 PositionManager settlement path (Permit2 pull from this contract).
-        if (!tokenPermit2Approved[newToken]) {
-            IERC20(newToken).approve(address(permit2), type(uint256).max);
-            tokenPermit2Approved[newToken] = true;
-        }
+        IERC20(newToken).approve(address(permit2), type(uint256).max);
         permit2.approve(newToken, address(positionManager), type(uint160).max, type(uint48).max);
 
         positionManager.initializePool(poolKey, sqrtPriceX96);
