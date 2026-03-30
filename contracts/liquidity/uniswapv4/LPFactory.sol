@@ -47,6 +47,7 @@ contract LPFactory is AccessControl {
     error Invalid();
 
     bytes32 public constant DEPLOYER_ROLE = keccak256("DEPLOYER_ROLE");
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     uint256 internal constant ACTION_MINT_POSITION = 0x02;
     uint256 internal constant ACTION_SETTLE_PAIR = 0x0d;
@@ -57,6 +58,8 @@ contract LPFactory is AccessControl {
     ILpLockerv4 public liquidityLocker;
 
     mapping(uint24 fee => int24 tickSpacing) public feeAmountTickSpacing;
+    mapping(address hook => bool approved) public approvedHooks;
+    mapping(address token => address hook) public hookForToken;
 
     struct DeploymentInfo {
         address token;
@@ -70,6 +73,7 @@ contract LPFactory is AccessControl {
     constructor(address positionManager_, address permit2_, address lpLocker_) {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(DEPLOYER_ROLE, msg.sender);
+        _grantRole(MANAGER_ROLE, msg.sender);
 
         positionManager = IPositionManagerV4(positionManager_);
         permit2 = IAllowanceTransferLike(permit2_);
@@ -99,7 +103,8 @@ contract LPFactory is AccessControl {
         int24 tickSpacing = feeAmountTickSpacing[fee];
         require(tickSpacing != 0 && tick % tickSpacing == 0, "Invalid tick");
 
-        positionId = _configurePoolAndMint(address(token), pairedToken, tick, tickSpacing, fee, supplyPerPool);
+        positionId =
+            _configurePoolAndMint(address(token), pairedToken, tick, tickSpacing, fee, supplyPerPool, hookForToken[address(token)]);
 
         positionManager.safeTransferFrom(address(this), address(liquidityLocker), positionId);
         liquidityLocker.addUserRewardRecipient(
@@ -115,13 +120,23 @@ contract LPFactory is AccessControl {
         emit LPCreated(address(liquidityLocker), deployer, address(token), positionId);
     }
 
+    function setHookApproved(address hook, bool approved) external onlyRole(MANAGER_ROLE) {
+        approvedHooks[hook] = approved;
+    }
+
+    function setHookForToken(address token, address hook) external {
+        if (hook != address(0) && !approvedHooks[hook]) revert Invalid();
+        hookForToken[token] = hook;
+    }
+
     function _configurePoolAndMint(
         address newToken,
         address pairedToken,
         int24 tick,
         int24 tickSpacing,
         uint24 fee,
-        uint256 supplyPerPool
+        uint256 supplyPerPool,
+        address hooks
     ) internal returns (uint256 positionId) {
         if (newToken >= pairedToken) revert Invalid();
 
@@ -135,7 +150,7 @@ contract LPFactory is AccessControl {
             currency1: pairedToken,
             fee: fee,
             tickSpacing: tickSpacing,
-            hooks: address(0)
+            hooks: hooks
         });
 
         // Required for v4 PositionManager settlement path (Permit2 pull from this contract).

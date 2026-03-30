@@ -16,6 +16,7 @@ if (chain === "localhost" || chain === "base") {
   addr.permit2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3";
   addr.positionManagerV4 = "0x7c5f5a4bbd8fd63184577525326123b519429bdc";
   /** @see https://docs.uniswap.org/contracts/v4/deployments Base */
+  addr.poolManagerV4 = "0x498581ff718922c3f8e6a244956af099b2652b2b";
   addr.universalRouterV4 = "0x6ff5693b99212da76ad316178a184ab56d299b43";
 } else {
   console.log("chain not supported for this test");
@@ -88,18 +89,44 @@ async function permit2Approve(signer, token, spender, amount) {
   await (await permit2.approve(token, spender, amount, exp)).wait();
 }
 
+/** Lower 14 bits of a v4 hook address must equal these flags (here: only `afterInitialize`). */
+const V4_HOOK_FLAG_MASK = (1n << 14n) - 1n;
+const V4_AFTER_INITIALIZE_FLAG = 1n << 12n;
+
+/**
+ * Mine a CREATE2 salt so `MockV4AfterInitializeHook` deploys to a valid v4 hook address.
+ * Mirrors @uniswap/v4-periphery HookMiner (flags-only match).
+ */
+async function mineV4AfterInitializeHookSalt(create2Deployer, poolManager, signer) {
+  const Hook = await ethers.getContractFactory("MockV4AfterInitializeHook", signer);
+  const deployTx = await Hook.getDeployTransaction(poolManager);
+  const creationCodeWithArgs = deployTx.data;
+  if (!creationCodeWithArgs) {
+    throw new Error("MockV4AfterInitializeHook: empty deploy transaction data");
+  }
+  const initCodeHash = ethers.keccak256(creationCodeWithArgs);
+  for (let i = 0n; i < 500_000n; i++) {
+    const salt = ethers.zeroPadValue(ethers.toBeHex(i), 32);
+    const hookAddress = ethers.getCreate2Address(create2Deployer, salt, initCodeHash);
+    const v = BigInt(hookAddress);
+    if ((v & V4_HOOK_FLAG_MASK) === V4_AFTER_INITIALIZE_FLAG) {
+      return salt;
+    }
+  }
+  throw new Error("mineV4AfterInitializeHookSalt: could not find salt");
+}
+
 /**
  * @returns {Promise<{
  *   one: import("ethers").Signer,
  *   two: import("ethers").Signer,
- *   tokenAddress: string,
+ *   streme: import("ethers").Contract,
+ *   stremeDeployV2: import("ethers").Contract,
  *   lpFactoryV4: import("ethers").Contract,
  *   locker: import("ethers").Contract,
- *   positionId: bigint,
- *   streme: import("ethers").Contract,
  * }>}
  */
-async function deployV4TokenFixture() {
+async function setupV4LpFactoryAndRegister() {
   const [one, two] = await ethers.getSigners();
   const stremeArtifact = require("../artifacts/contracts/Streme.sol/Streme.json");
   const stremeDeployV2Artifact = require("../artifacts/contracts/extras/StremeDeployV2.sol/StremeDeployV2.json");
@@ -120,6 +147,46 @@ async function deployV4TokenFixture() {
   await (await locker.grantRole(await locker.MANAGER_ROLE(), lpFactoryV4.target)).wait();
   await (await streme.registerLiquidityFactory(lpFactoryV4.target, true)).wait();
   await (await lpFactoryV4.grantRole(await lpFactoryV4.DEPLOYER_ROLE(), addr.streme)).wait();
+
+  return { one, two, streme, stremeDeployV2, lpFactoryV4, locker };
+}
+
+function buildAllocations() {
+  return [
+    {
+      allocationType: 0,
+      admin: process.env.GEORGE,
+      percentage: 10,
+      data: ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [37 * days, 90 * days]),
+    },
+    {
+      allocationType: 0,
+      admin: process.env.KRAMER,
+      percentage: 27,
+      data: ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [37 * days, 90 * days]),
+    },
+    {
+      allocationType: 1,
+      admin: ethers.ZeroAddress,
+      percentage: 5,
+      data: ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "int96"], [37 * days, 365 * days]),
+    },
+  ];
+}
+
+/**
+ * @returns {Promise<{
+ *   one: import("ethers").Signer,
+ *   two: import("ethers").Signer,
+ *   tokenAddress: string,
+ *   lpFactoryV4: import("ethers").Contract,
+ *   locker: import("ethers").Contract,
+ *   positionId: bigint,
+ *   streme: import("ethers").Contract,
+ * }>}
+ */
+async function deployV4TokenFixture() {
+  const { one, two, streme, stremeDeployV2, lpFactoryV4, locker } = await setupV4LpFactoryAndRegister();
 
   const poolConfig = {
     tick: -230000,
@@ -152,27 +219,6 @@ async function deployV4TokenFixture() {
   const tokenAddress = result[1];
   tokenConfig._salt = salt;
 
-  const allocations = [
-    {
-      allocationType: 0,
-      admin: process.env.GEORGE,
-      percentage: 10,
-      data: ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [37 * days, 90 * days]),
-    },
-    {
-      allocationType: 0,
-      admin: process.env.KRAMER,
-      percentage: 27,
-      data: ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "uint256"], [37 * days, 90 * days]),
-    },
-    {
-      allocationType: 1,
-      admin: ethers.ZeroAddress,
-      percentage: 5,
-      data: ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "int96"], [37 * days, 365 * days]),
-    },
-  ];
-
   await (
     await stremeDeployV2.deployWithAllocations(
       addr.tokenFactory,
@@ -180,7 +226,7 @@ async function deployV4TokenFixture() {
       lpFactoryV4.target,
       ethers.ZeroAddress,
       tokenConfig,
-      allocations
+      buildAllocations()
     )
   ).wait();
 
@@ -189,6 +235,92 @@ async function deployV4TokenFixture() {
     one,
     two,
     tokenAddress,
+    lpFactoryV4,
+    locker,
+    positionId: deploymentInfo.positionId,
+    streme,
+  };
+}
+
+/**
+ * Second deployment path: predict token address, approve + bind a mined v4 mock hook, then deploy.
+ * @returns {Promise<{
+ *   one: import("ethers").Signer,
+ *   two: import("ethers").Signer,
+ *   tokenAddress: string,
+ *   hookAddress: string,
+ *   lpFactoryV4: import("ethers").Contract,
+ *   locker: import("ethers").Contract,
+ *   positionId: bigint,
+ *   streme: import("ethers").Contract,
+ * }>}
+ */
+async function deployV4TokenFixtureWithHook() {
+  const { one, two, streme, stremeDeployV2, lpFactoryV4, locker } = await setupV4LpFactoryAndRegister();
+
+  const poolConfig = {
+    tick: -230000,
+    pairedToken: addr.pairedToken,
+    devBuyFee: 100000,
+  };
+
+  const uniqueSuffix = `${Date.now().toString().slice(-6)}H`;
+  const symbol = `UV4${uniqueSuffix}`;
+  const tokenConfig = {
+    _name: `UniV4 Hook ${uniqueSuffix}`,
+    _symbol: symbol,
+    _supply: ethers.parseEther("100000000000"),
+    _fee: POOL_FEE,
+    _salt: "0x0000000000000000000000000000000000000000000000000000000000000000",
+    _deployer: process.env.OWNER,
+    _fid: 8685,
+    _image: "none",
+    _castHash: "none",
+    _poolConfig: poolConfig,
+  };
+
+  const saltResult = await streme.generateSalt(
+    tokenConfig._symbol,
+    tokenConfig._deployer,
+    addr.tokenFactory,
+    addr.pairedToken
+  );
+  const tokenSalt = saltResult[0];
+  const predictedTokenAddress = saltResult[1];
+  tokenConfig._salt = tokenSalt;
+
+  const HookDeployer = await ethers.getContractFactory("V4HookTestDeployer", one);
+  const hookDeployer = await HookDeployer.deploy();
+  await hookDeployer.waitForDeployment();
+  const hookDeployerAddr = await hookDeployer.getAddress();
+
+  const hookSalt = await mineV4AfterInitializeHookSalt(hookDeployerAddr, addr.poolManagerV4, one);
+  const HookFactory = await ethers.getContractFactory("MockV4AfterInitializeHook", one);
+  const hookDeployTx = await HookFactory.getDeployTransaction(addr.poolManagerV4);
+  const hookInitCodeHash = ethers.keccak256(hookDeployTx.data);
+  const hookAddress = ethers.getCreate2Address(hookDeployerAddr, hookSalt, hookInitCodeHash);
+  await (await hookDeployer.deployAfterInitializeHook(addr.poolManagerV4, hookSalt)).wait();
+
+  await (await lpFactoryV4.setHookApproved(hookAddress, true)).wait();
+  await (await lpFactoryV4.setHookForToken(predictedTokenAddress, hookAddress)).wait();
+
+  await (
+    await stremeDeployV2.deployWithAllocations(
+      addr.tokenFactory,
+      addr.postDeployFactory,
+      lpFactoryV4.target,
+      ethers.ZeroAddress,
+      tokenConfig,
+      buildAllocations()
+    )
+  ).wait();
+
+  const deploymentInfo = await lpFactoryV4.deploymentInfoForToken(predictedTokenAddress);
+  return {
+    one,
+    two,
+    tokenAddress: predictedTokenAddress,
+    hookAddress,
     lpFactoryV4,
     locker,
     positionId: deploymentInfo.positionId,
@@ -207,6 +339,24 @@ describe("Uniswap v4 Deploy", function () {
     expect(deploymentInfo.token).to.equal(ctx.tokenAddress);
     expect(deploymentInfo.locker).to.equal(ctx.locker.target);
     expect(deploymentInfo.positionId).to.be.gt(0n);
+  });
+
+  it("deploys a second token with predicted address + approved hook bound before deployment", async function () {
+    this.timeout(240000);
+    if (chain !== "localhost" && chain !== "base") {
+      this.skip();
+    }
+
+    const ctx = await deployV4TokenFixtureWithHook();
+
+    const deploymentInfo = await ctx.lpFactoryV4.deploymentInfoForToken(ctx.tokenAddress);
+    expect(ctx.tokenAddress).to.not.equal(ethers.ZeroAddress);
+    expect(deploymentInfo.token).to.equal(ctx.tokenAddress);
+    expect(deploymentInfo.positionId).to.be.gt(0n);
+
+    const pm = new ethers.Contract(addr.positionManagerV4, positionManagerViewAbi, ethers.provider);
+    const [poolKey] = await pm.getPoolAndPositionInfo(deploymentInfo.positionId);
+    expect(poolKey.hooks.toLowerCase()).to.equal(ctx.hookAddress.toLowerCase());
   });
 
   describe("v4 pool follow-up (same fork + env as deploy test)", function () {
