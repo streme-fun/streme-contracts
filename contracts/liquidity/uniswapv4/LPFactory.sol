@@ -190,6 +190,7 @@ contract LPFactory is AccessControl {
         return deploymentInfoForToken[token].token != address(0);
     }
 
+    /// @notice This function is permissionless by design
     function claimRewards(address token) external {
         DeploymentInfo memory deploymentInfo = deploymentInfoForToken[token];
         if (deploymentInfo.token == address(0)) revert NotFound();

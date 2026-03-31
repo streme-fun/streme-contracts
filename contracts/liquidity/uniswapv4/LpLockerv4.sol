@@ -62,6 +62,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
     constructor(address positionManager_, address teamRecipient_, uint256 teamReward_) {
         positionManager = IPositionManagerV4ForLocker(positionManager_);
         teamRecipient = teamRecipient_;
+        require(teamReward_ <= 100, "reward too high");
         teamReward = teamReward_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
