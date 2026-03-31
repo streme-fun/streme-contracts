@@ -58,6 +58,7 @@ contract LPFactory is AccessControl {
     ILpLockerv4 public liquidityLocker;
 
     mapping(uint24 fee => int24 tickSpacing) public feeAmountTickSpacing;
+    address public defaultHook;
     mapping(address hook => bool approved) public approvedHooks;
     mapping(address token => address hook) public hookForToken;
 
@@ -104,7 +105,7 @@ contract LPFactory is AccessControl {
         require(tickSpacing != 0 && tick % tickSpacing == 0, "Invalid tick");
 
         positionId =
-            _configurePoolAndMint(address(token), pairedToken, tick, tickSpacing, fee, supplyPerPool, hookForToken[address(token)]);
+            _configurePoolAndMint(address(token), pairedToken, tick, tickSpacing, fee, supplyPerPool, _getHook(address(token)));
 
         positionManager.safeTransferFrom(address(this), address(liquidityLocker), positionId);
         liquidityLocker.addUserRewardRecipient(
@@ -127,6 +128,17 @@ contract LPFactory is AccessControl {
     function setHookForToken(address token, address hook) external {
         if (hook != address(0) && !approvedHooks[hook]) revert Invalid();
         hookForToken[token] = hook;
+    }
+
+    function _getHook(address token) internal view returns (address) {
+        return hookForToken[token] != address(0) ? hookForToken[token] : defaultHook;
+    }
+
+    function setDefaultHook(address hook) external onlyRole(MANAGER_ROLE) {
+        defaultHook = hook;
+        if (hook != address(0)) {
+            approvedHooks[hook] = true;
+        }
     }
 
     function _configurePoolAndMint(
