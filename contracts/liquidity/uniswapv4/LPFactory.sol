@@ -125,6 +125,7 @@ contract LPFactory is AccessControl {
         approvedHooks[hook] = approved;
     }
 
+    /// @notice This function is permissionless by design
     function setHookForToken(address token, address hook) external {
         if (hook != address(0) && !approvedHooks[hook]) revert Invalid();
         hookForToken[token] = hook;

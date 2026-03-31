@@ -69,6 +69,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
     }
 
     function updateTeamReward(uint256 newReward) external onlyRole(MANAGER_ROLE) {
+        require(newReward <= 100, "reward too high");
         teamReward = newReward;
     }
 
@@ -81,6 +82,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         address newTeamRecipient,
         uint256 newTeamReward
     ) external onlyRole(MANAGER_ROLE) {
+        require(newTeamReward <= 100, "reward too high");
         teamOverrideRewardRecipientForToken[tokenId] = TeamRewardRecipient({
             recipient: newTeamRecipient,
             reward: newTeamReward,
@@ -176,11 +178,6 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         if (teamAmount1 > 0) IERC20(token1).transfer(_teamRecipient, teamAmount1);
 
         emit ClaimedRewards(recipient, token0, token1, recipientAmount0, recipientAmount1, amount0, amount1);
-    }
-
-    function withdrawETH(address recipient) external onlyRole(MANAGER_ROLE) {
-        (bool success,) = payable(recipient).call{value: address(this).balance}("");
-        require(success, "ETH transfer failed");
     }
 
     function withdrawERC20(address token, address recipient) external onlyRole(MANAGER_ROLE) {
