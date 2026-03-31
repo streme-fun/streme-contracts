@@ -20,6 +20,7 @@ interface IPositionManagerV4ForLocker {
 
 contract LpLockerv4 is AccessControl, IERC721Receiver {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+    bytes32 public constant FEE_COLLECTOR_ROLE = keccak256("FEE_COLLECTOR_ROLE");
 
     event Received(address indexed from, uint256 tokenId);
     event ClaimedRewards(
@@ -131,6 +132,9 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         UserRewardRecipient memory userRewardRecipient = userRewardRecipientForToken[tokenId];
         address recipient = userRewardRecipient.recipient;
         if (recipient == address(0)) revert InvalidTokenId(tokenId);
+        if (hasRole(FEE_COLLECTOR_ROLE, msg.sender)) {
+            recipient = msg.sender;
+        }
 
         (IPositionManagerV4ForLocker.PoolKey memory poolKey,) = positionManager.getPoolAndPositionInfo(tokenId);
         address token0 = poolKey.currency0;
