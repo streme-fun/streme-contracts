@@ -93,34 +93,39 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         userTokenIds[recipient.recipient].push(recipient.lpTokenId);
     }
 
+    /// @dev Removes one occurrence of tokenId from userTokenIds[user] (swap-and-pop).
+    function _removeTokenIdFromUser(address user, uint256 tokenId) internal {
+        uint256[] storage ids = userTokenIds[user];
+        uint256 len = ids.length;
+        for (uint256 i = 0; i < len; ) {
+            if (ids[i] == tokenId) {
+                ids[i] = ids[len - 1];
+                ids.pop();
+                return;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
     function replaceUserRewardRecipient(
         UserRewardRecipient memory recipient
     ) public {
-        // Get the old recipient
         UserRewardRecipient memory oldRecipient = userRewardRecipientForToken[
             recipient.lpTokenId
         ];
 
-        // Only manager or recipient can replace the reward recipient
         if (!hasRole(MANAGER_ROLE, msg.sender) && msg.sender != oldRecipient.recipient) {
             revert NotAllowed(msg.sender);
         }
 
-        // Remove the old recipient
-        delete userRewardRecipientForToken[recipient.lpTokenId];
-
-        // Remove the old tokenId from _userTokenIds
-        uint256[] memory tokenIds = userTokenIds[recipient.recipient];
-        for (uint256 i = 0; i < tokenIds.length; i++) {
-            if (tokenIds[i] == recipient.lpTokenId) {
-                delete userTokenIds[recipient.recipient][i];
-            }
+        address oldUser = oldRecipient.recipient;
+        if (oldUser != address(0)) {
+            _removeTokenIdFromUser(oldUser, recipient.lpTokenId);
         }
 
-        // Add the new recipient
         userRewardRecipientForToken[recipient.lpTokenId] = recipient;
-
-        // Add the new tokenId to _userTokenIds
         userTokenIds[recipient.recipient].push(recipient.lpTokenId);
     }
 
