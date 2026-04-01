@@ -3,7 +3,6 @@ pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface IPositionManagerV4ForLocker {
@@ -20,7 +19,6 @@ interface IPositionManagerV4ForLocker {
 }
 
 contract LpLockerv4 is AccessControl, IERC721Receiver {
-    using SafeERC20 for IERC20;
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     bytes32 public constant FEE_COLLECTOR_ROLE = keccak256("FEE_COLLECTOR_ROLE");
 
@@ -175,17 +173,17 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         uint256 teamAmount0 = amount0 - recipientAmount0;
         uint256 teamAmount1 = amount1 - recipientAmount1;
 
-        if (recipientAmount0 > 0) IERC20(token0).safeTransfer(recipient, recipientAmount0);
-        if (recipientAmount1 > 0) IERC20(token1).safeTransfer(recipient, recipientAmount1);
-        if (teamAmount0 > 0) IERC20(token0).safeTransfer(_teamRecipient, teamAmount0);
-        if (teamAmount1 > 0) IERC20(token1).safeTransfer(_teamRecipient, teamAmount1);
+        if (recipientAmount0 > 0) IERC20(token0).transfer(recipient, recipientAmount0);
+        if (recipientAmount1 > 0) IERC20(token1).transfer(recipient, recipientAmount1);
+        if (teamAmount0 > 0) IERC20(token0).transfer(_teamRecipient, teamAmount0);
+        if (teamAmount1 > 0) IERC20(token1).transfer(_teamRecipient, teamAmount1);
 
         emit ClaimedRewards(recipient, token0, token1, recipientAmount0, recipientAmount1, amount0, amount1);
     }
 
     function withdrawERC20(address token, address recipient) external onlyRole(MANAGER_ROLE) {
         IERC20 iToken = IERC20(token);
-        iToken.safeTransfer(recipient, iToken.balanceOf(address(this)));
+        iToken.transfer(recipient, iToken.balanceOf(address(this)));
     }
 
     function onERC721Received(address, address from, uint256 id, bytes calldata) external override returns (bytes4) {
