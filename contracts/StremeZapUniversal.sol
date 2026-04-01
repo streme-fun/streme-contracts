@@ -299,11 +299,14 @@ contract StremeZapUniversal {
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata _data) external {
         require(amount0Delta > 0 || amount1Delta > 0);
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
-        (address tokenIn, address tokenOut,) = data.path.decodeFirstPool();
+        (, address tokenOut,) = data.path.decodeFirstPool();
 
         address pool = lpFactoryAero.pool(tokenOut);
         require(msg.sender == pool, "Callback only from pool");
         address token0 = ICLPool(msg.sender).token0();
+        address token1 = ICLPool(msg.sender).token1();
+        require(tokenOut == token0 || tokenOut == token1, "path/pool mismatch");
+        address tokenIn = tokenOut == token0 ? token1 : token0;
         int256 amountInDelta = tokenIn == token0 ? amount0Delta : amount1Delta;
         require(amountInDelta > 0, "invalid in delta");
         IERC20(tokenIn).safeTransfer(msg.sender, uint256(amountInDelta));
