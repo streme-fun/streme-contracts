@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 interface IPositionManagerV4ForLocker {
@@ -19,6 +20,7 @@ interface IPositionManagerV4ForLocker {
 }
 
 contract LpLockerv4 is AccessControl, IERC721Receiver {
+    using SafeERC20 for IERC20;
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     event Received(address indexed from, uint256 tokenId);
@@ -59,6 +61,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
     mapping(address => uint256[]) public userTokenIds;
 
     constructor(address positionManager_, address teamRecipient_, uint256 teamReward_) {
+        require(teamReward_ <= 100, "team reward > 100");
         positionManager = IPositionManagerV4ForLocker(positionManager_);
         teamRecipient = teamRecipient_;
         teamReward = teamReward_;
@@ -68,6 +71,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
     }
 
     function updateTeamReward(uint256 newReward) external onlyRole(MANAGER_ROLE) {
+        require(newReward <= 100, "team reward > 100");
         teamReward = newReward;
     }
 
@@ -80,6 +84,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         address newTeamRecipient,
         uint256 newTeamReward
     ) external onlyRole(MANAGER_ROLE) {
+        require(newTeamReward <= 100, "team reward > 100");
         teamOverrideRewardRecipientForToken[tokenId] = TeamRewardRecipient({
             recipient: newTeamRecipient,
             reward: newTeamReward,
@@ -130,10 +135,10 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         uint256 teamAmount0 = amount0 - recipientAmount0;
         uint256 teamAmount1 = amount1 - recipientAmount1;
 
-        if (recipientAmount0 > 0) IERC20(token0).transfer(recipient, recipientAmount0);
-        if (recipientAmount1 > 0) IERC20(token1).transfer(recipient, recipientAmount1);
-        if (teamAmount0 > 0) IERC20(token0).transfer(_teamRecipient, teamAmount0);
-        if (teamAmount1 > 0) IERC20(token1).transfer(_teamRecipient, teamAmount1);
+        if (recipientAmount0 > 0) IERC20(token0).safeTransfer(recipient, recipientAmount0);
+        if (recipientAmount1 > 0) IERC20(token1).safeTransfer(recipient, recipientAmount1);
+        if (teamAmount0 > 0) IERC20(token0).safeTransfer(_teamRecipient, teamAmount0);
+        if (teamAmount1 > 0) IERC20(token1).safeTransfer(_teamRecipient, teamAmount1);
 
         emit ClaimedRewards(recipient, token0, token1, recipientAmount0, recipientAmount1, amount0, amount1);
     }
@@ -145,7 +150,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
 
     function withdrawERC20(address token, address recipient) external onlyRole(MANAGER_ROLE) {
         IERC20 iToken = IERC20(token);
-        iToken.transfer(recipient, iToken.balanceOf(address(this)));
+        iToken.safeTransfer(recipient, iToken.balanceOf(address(this)));
     }
 
     function onERC721Received(address, address from, uint256 id, bytes calldata) external override returns (bytes4) {

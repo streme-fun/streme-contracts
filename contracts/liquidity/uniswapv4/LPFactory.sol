@@ -124,7 +124,7 @@ contract LPFactory is AccessControl {
         approvedHooks[hook] = approved;
     }
 
-    function setHookForToken(address token, address hook) external {
+    function setHookForToken(address token, address hook) external onlyRole(MANAGER_ROLE) {
         if (hook != address(0) && !approvedHooks[hook]) revert Invalid();
         hookForToken[token] = hook;
     }

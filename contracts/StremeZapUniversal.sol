@@ -82,18 +82,18 @@ contract StremeZapUniversal {
     ISwapRouter public immutable uniSwapRouter;
     StremeV4SwapRouter public immutable v4SwapRouter;
     IPositionManager public immutable v4PositionManager;
-    address public weth;
-    address public ethx;
+    address public immutable weth;
+    address public immutable ethx;
     uint24 public constant uniPoolFee = 10000;
     int24 public constant aeroTickSpacing = 500;
-    ILPFactoryAero public lpFactoryAero;
-    ILPFactoryV4 public lpFactoryV4;
+    ILPFactoryAero public immutable lpFactoryAero;
+    ILPFactoryV4 public immutable lpFactoryV4;
 
     struct SwapCallbackData {
         bytes path;
-        address payer;
     }
 
+    uint160 internal constant MIN_SQRT_RATIO = 4295128739;
     uint160 internal constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970342;
 
     constructor(
@@ -274,26 +274,38 @@ contract StremeZapUniversal {
         internal
         returns (uint256 amountOut)
     {
+        address token0 = ICLPool(pool).token0();
+        address token1 = ICLPool(pool).token1();
+        require((tokenIn == token0 && stremeCoin == token1) || (tokenIn == token1 && stremeCoin == token0), "!aero pair");
+        bool zeroForOne = tokenIn == token0;
+
         bytes memory path = abi.encodePacked(tokenIn, aeroTickSpacing, stremeCoin);
-        SwapCallbackData memory data = SwapCallbackData({path: path, payer: msg.sender});
+        SwapCallbackData memory data = SwapCallbackData({path: path});
 
-        (int256 amount0,) = ICLPool(pool).swap(recipient, false, int256(amountIn), MAX_SQRT_RATIO - 1, abi.encode(data));
+        (int256 amount0, int256 amount1) = ICLPool(pool).swap(
+            recipient,
+            zeroForOne,
+            int256(amountIn),
+            zeroForOne ? MIN_SQRT_RATIO + 1 : MAX_SQRT_RATIO - 1,
+            abi.encode(data)
+        );
 
-        amountOut = uint256(-(amount0));
+        int256 outDelta = zeroForOne ? amount1 : amount0;
+        require(outDelta < 0, "no output");
+        amountOut = uint256(-outDelta);
         require(amountOut >= amountOutMin, "Too little received");
     }
 
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata _data) external {
         require(amount0Delta > 0 || amount1Delta > 0);
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
-        (, address tokenOut,) = data.path.decodeFirstPool();
+        (address tokenIn, address tokenOut,) = data.path.decodeFirstPool();
 
         address pool = lpFactoryAero.pool(tokenOut);
         require(msg.sender == pool, "Callback only from pool");
-
-        if (address(this).balance >= uint256(amount1Delta)) {
-            IWETH9(weth).deposit{value: uint256(amount1Delta)}();
-        }
-        IWETH9(weth).transfer(msg.sender, uint256(amount1Delta));
+        address token0 = ICLPool(msg.sender).token0();
+        int256 amountInDelta = tokenIn == token0 ? amount0Delta : amount1Delta;
+        require(amountInDelta > 0, "invalid in delta");
+        IERC20(tokenIn).safeTransfer(msg.sender, uint256(amountInDelta));
     }
 }
