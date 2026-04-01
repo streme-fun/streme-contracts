@@ -172,6 +172,11 @@ contract LPFactory is AccessControl {
         return tokensDeployedByUsers[user];
     }
 
+    /// @notice Whether this factory created a v4 LP for `token` (same as `deploymentInfoForToken(token).token != address(0)`).
+    function isV4Token(address token) external view returns (bool) {
+        return deploymentInfoForToken[token].token != address(0);
+    }
+
     function claimRewards(address token) external {
         DeploymentInfo memory deploymentInfo = deploymentInfoForToken[token];
         if (deploymentInfo.token == address(0)) revert NotFound();

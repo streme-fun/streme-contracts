@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Compatible with OpenZeppelin Contracts ^5.0.0
-pragma solidity ^0.8.22;
+pragma solidity ^0.8.24;
 
 import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import {ERC20Upgradeable, IERC20} from "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import {ERC20BurnableUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/ERC20BurnableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuardTransient} from "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 
 interface IDistributionPool {
     function getUnits(address memberAddr) external view returns (uint128);
@@ -27,7 +27,7 @@ interface IStakingFactoryv2 {
     function teamRecipient() external view returns (address);
 }
 
-contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGuardUpgradeable, AccessControlUpgradeable {
+contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, ReentrancyGuardTransient, AccessControlUpgradeable {
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
     IERC20 public stakeableToken;
     mapping(address account => uint256) public depositTimestamps;
@@ -89,7 +89,6 @@ contract StakedTokenV2Special is ERC20Upgradeable, ERC20BurnableUpgradeable, Ree
     ) initializer public {
         __ERC20_init(_name, _symbol);
         __ERC20Burnable_init();
-        __ReentrancyGuard_init();
         __AccessControl_init();
         _grantRole(MANAGER_ROLE, msg.sender);
         originalStakedToken = IStakedTokenv2(_originalStakedTokenAddress);
