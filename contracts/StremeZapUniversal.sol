@@ -236,18 +236,11 @@ contract StremeZapUniversal {
 
         address c0 = Currency.unwrap(poolKey.currency0);
         address c1 = Currency.unwrap(poolKey.currency1);
-        require(stremeCoin == c0 || stremeCoin == c1, "!streme in pool");
-        require(tokenIn == c0 || tokenIn == c1, "!input in pool");
-        require(tokenIn != stremeCoin, "!same side");
 
-        bool zeroForOne;
-        if (tokenIn == c0) {
-            require(stremeCoin == c1, "!pair");
-            zeroForOne = true;
-        } else {
-            require(stremeCoin == c0, "!pair");
-            zeroForOne = false;
-        }
+        // Streme buys always swap from the higher-sorting quote token (WETH/ETHx) into the
+        // lower-sorting Streme token, so direction is always one -> zero.
+        require(stremeCoin == c0 && tokenIn == c1, "!pair");
+        bool zeroForOne = false;
 
         Currency inputCurrency = Currency.wrap(tokenIn);
         Currency outputCurrency = Currency.wrap(stremeCoin);
@@ -264,6 +257,7 @@ contract StremeZapUniversal {
             recipient
         );
 
+        // the swapRouter will pull tokens from this contract 
         v4SwapRouter.executeActions(plan);
 
         uint256 balanceAfter = IERC20(stremeCoin).balanceOf(recipient);
@@ -299,14 +293,11 @@ contract StremeZapUniversal {
     function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata _data) external {
         require(amount0Delta > 0 || amount1Delta > 0);
         SwapCallbackData memory data = abi.decode(_data, (SwapCallbackData));
-        (, address tokenOut,) = data.path.decodeFirstPool();
+        (address tokenIn, address tokenOut,) = data.path.decodeFirstPool();
 
         address pool = lpFactoryAero.pool(tokenOut);
         require(msg.sender == pool, "Callback only from pool");
         address token0 = ICLPool(msg.sender).token0();
-        address token1 = ICLPool(msg.sender).token1();
-        require(tokenOut == token0 || tokenOut == token1, "path/pool mismatch");
-        address tokenIn = tokenOut == token0 ? token1 : token0;
         int256 amountInDelta = tokenIn == token0 ? amount0Delta : amount1Delta;
         require(amountInDelta > 0, "invalid in delta");
         IERC20(tokenIn).safeTransfer(msg.sender, uint256(amountInDelta));
