@@ -22,6 +22,7 @@ interface IPositionManagerV4ForLocker {
 contract LpLockerv4 is AccessControl, IERC721Receiver {
     using SafeERC20 for IERC20;
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+    bytes32 public constant FEE_COLLECTOR_ROLE = keccak256("FEE_COLLECTOR_ROLE");
 
     event Received(address indexed from, uint256 tokenId);
     event ClaimedRewards(
@@ -61,9 +62,9 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
     mapping(address => uint256[]) public userTokenIds;
 
     constructor(address positionManager_, address teamRecipient_, uint256 teamReward_) {
-        require(teamReward_ <= 100, "team reward > 100");
         positionManager = IPositionManagerV4ForLocker(positionManager_);
         teamRecipient = teamRecipient_;
+        require(teamReward_ <= 100, "reward too high");
         teamReward = teamReward_;
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _grantRole(MANAGER_ROLE, msg.sender);
@@ -71,7 +72,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
     }
 
     function updateTeamReward(uint256 newReward) external onlyRole(MANAGER_ROLE) {
-        require(newReward <= 100, "team reward > 100");
+        require(newReward <= 100, "reward too high");
         teamReward = newReward;
     }
 
@@ -84,7 +85,7 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         address newTeamRecipient,
         uint256 newTeamReward
     ) external onlyRole(MANAGER_ROLE) {
-        require(newTeamReward <= 100, "team reward > 100");
+        require(newTeamReward <= 100, "reward too high");
         teamOverrideRewardRecipientForToken[tokenId] = TeamRewardRecipient({
             recipient: newTeamRecipient,
             reward: newTeamReward,
@@ -97,6 +98,42 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         userTokenIds[recipient.recipient].push(recipient.lpTokenId);
     }
 
+    /// @dev Removes one occurrence of tokenId from userTokenIds[user] (swap-and-pop).
+    function _removeTokenIdFromUser(address user, uint256 tokenId) internal {
+        uint256[] storage ids = userTokenIds[user];
+        uint256 len = ids.length;
+        for (uint256 i = 0; i < len; ) {
+            if (ids[i] == tokenId) {
+                ids[i] = ids[len - 1];
+                ids.pop();
+                return;
+            }
+            unchecked {
+                ++i;
+            }
+        }
+    }
+
+    function replaceUserRewardRecipient(
+        UserRewardRecipient memory recipient
+    ) public {
+        UserRewardRecipient memory oldRecipient = userRewardRecipientForToken[
+            recipient.lpTokenId
+        ];
+
+        if (!hasRole(MANAGER_ROLE, msg.sender) && msg.sender != oldRecipient.recipient) {
+            revert NotAllowed(msg.sender);
+        }
+
+        address oldUser = oldRecipient.recipient;
+        if (oldUser != address(0)) {
+            _removeTokenIdFromUser(oldUser, recipient.lpTokenId);
+        }
+
+        userRewardRecipientForToken[recipient.lpTokenId] = recipient;
+        userTokenIds[recipient.recipient].push(recipient.lpTokenId);
+    }
+
     function getLpTokenIdsForUser(address user) external view returns (uint256[] memory) {
         return userTokenIds[user];
     }
@@ -105,6 +142,9 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         UserRewardRecipient memory userRewardRecipient = userRewardRecipientForToken[tokenId];
         address recipient = userRewardRecipient.recipient;
         if (recipient == address(0)) revert InvalidTokenId(tokenId);
+        if (hasRole(FEE_COLLECTOR_ROLE, msg.sender)) {
+            recipient = msg.sender;
+        }
 
         (IPositionManagerV4ForLocker.PoolKey memory poolKey,) = positionManager.getPoolAndPositionInfo(tokenId);
         address token0 = poolKey.currency0;
@@ -141,11 +181,6 @@ contract LpLockerv4 is AccessControl, IERC721Receiver {
         if (teamAmount1 > 0) IERC20(token1).safeTransfer(_teamRecipient, teamAmount1);
 
         emit ClaimedRewards(recipient, token0, token1, recipientAmount0, recipientAmount1, amount0, amount1);
-    }
-
-    function withdrawETH(address recipient) external onlyRole(MANAGER_ROLE) {
-        (bool success,) = payable(recipient).call{value: address(this).balance}("");
-        require(success, "ETH transfer failed");
     }
 
     function withdrawERC20(address token, address recipient) external onlyRole(MANAGER_ROLE) {

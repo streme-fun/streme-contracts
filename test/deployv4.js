@@ -65,6 +65,10 @@ function encodeCurrencyUint(currencyAddr, amount) {
   return abiCoder.encode(["address", "uint256"], [currencyAddr, amount]);
 }
 
+function uint160Max() {
+  return (1n << 160n) - 1n;
+}
+
 /**
  * Inner data for Universal Router COMMAND_V4_SWAP (same shape as PositionManager.modifyLiquidities unlockData).
  */
@@ -87,6 +91,62 @@ async function permit2Approve(signer, token, spender, amount) {
   await (await tokenC.approve(addr.permit2, ethers.MaxUint256)).wait();
   const exp = 2 ** 48 - 1;
   await (await permit2.approve(token, spender, amount, exp)).wait();
+}
+
+/**
+ * Use a default Hardhat signer if `targetAddr` is one of them; otherwise impersonate (localhost / fork).
+ */
+async function getSignerForAddress(targetAddr, fundFromSigner) {
+  const signers = await ethers.getSigners();
+  for (const s of signers) {
+    if (s.address.toLowerCase() === targetAddr.toLowerCase()) {
+      return s;
+    }
+  }
+  await ethers.provider.send("hardhat_impersonateAccount", [targetAddr]);
+  if (fundFromSigner) {
+    await (
+      await fundFromSigner.sendTransaction({ to: targetAddr, value: ethers.parseEther("1") })
+    ).wait();
+  }
+  return ethers.getSigner(targetAddr);
+}
+
+/** WETH ↔ token swaps on `ctx` pool so the LP position accrues fees (same path as v4 pool follow-up test). */
+async function runV4SwapsForFees(ctx, poolKey) {
+  const ur = new ethers.Contract(addr.universalRouterV4, universalRouterAbi, ctx.one);
+  const weth = new ethers.Contract(addr.pairedToken, wethAbi, ctx.one);
+  const token = new ethers.Contract(ctx.tokenAddress, erc20Abi, ctx.one);
+
+  const wethIn = ethers.parseEther("0.05");
+  await (await weth.deposit({ value: wethIn })).wait();
+  await permit2Approve(ctx.one, addr.pairedToken, addr.universalRouterV4, uint160Max());
+
+  const swap1 = encodeExactInputSingleParam(poolKey, false, wethIn, 0n);
+  const inner1 = encodeV4SwapBundle(
+    swap1,
+    addr.pairedToken,
+    ethers.MaxUint256,
+    ctx.tokenAddress,
+    0n
+  );
+  const deadline = Math.floor(Date.now() / 1000) + 3600;
+  await (await ur.execute(ethers.toBeHex(COMMAND_V4_SWAP, 1), [inner1], deadline)).wait();
+
+  const balTok = await token.balanceOf(ctx.one.address);
+  expect(balTok).to.be.gt(0n);
+
+  await permit2Approve(ctx.one, ctx.tokenAddress, addr.universalRouterV4, uint160Max());
+  const swapBack = balTok / 4n;
+  const swap2 = encodeExactInputSingleParam(poolKey, true, swapBack, 0n);
+  const inner2 = encodeV4SwapBundle(
+    swap2,
+    ctx.tokenAddress,
+    ethers.MaxUint256,
+    addr.pairedToken,
+    0n
+  );
+  await (await ur.execute(ethers.toBeHex(COMMAND_V4_SWAP, 1), [inner2], deadline)).wait();
 }
 
 /** Lower 14 bits of a v4 hook address must equal these flags (here: only `afterInitialize`). */
@@ -185,7 +245,10 @@ function buildAllocations() {
  *   streme: import("ethers").Contract,
  * }>}
  */
-async function deployV4TokenFixture() {
+/**
+ * @param {{ deployer?: string }} [opts] If `deployer` is set, used as LP fee recipient (`_deployer`); else `process.env.OWNER`.
+ */
+async function deployV4TokenFixture(opts = {}) {
   const { one, two, streme, stremeDeployV2, lpFactoryV4, locker } = await setupV4LpFactoryAndRegister();
 
   const poolConfig = {
@@ -196,13 +259,14 @@ async function deployV4TokenFixture() {
 
   const uniqueSuffix = Date.now().toString().slice(-6);
   const symbol = `UV4${uniqueSuffix}`;
+  const deployerAddr = opts.deployer ?? process.env.OWNER;
   const tokenConfig = {
     _name: `UniV4 Planet ${uniqueSuffix}`,
     _symbol: symbol,
     _supply: ethers.parseEther("100000000000"),
     _fee: POOL_FEE,
     _salt: "0x0000000000000000000000000000000000000000000000000000000000000000",
-    _deployer: process.env.OWNER,
+    _deployer: deployerAddr,
     _fid: 8685,
     _image: "none",
     _castHash: "none",
@@ -383,44 +447,7 @@ describe("Uniswap v4 Deploy", function () {
 
     it("performs Uniswap v4 swaps on the deployed token pool (WETH ↔ token)", async function () {
       this.timeout(300000);
-
-      const ur = new ethers.Contract(addr.universalRouterV4, universalRouterAbi, ctx.one);
-      const weth = new ethers.Contract(addr.pairedToken, wethAbi, ctx.one);
-      const token = new ethers.Contract(ctx.tokenAddress, erc20Abi, ctx.one);
-
-      const wethIn = ethers.parseEther("0.05");
-      await (await weth.deposit({ value: wethIn })).wait();
-      await permit2Approve(ctx.one, addr.pairedToken, addr.universalRouterV4, uint160Max());
-
-      const swap1 = encodeExactInputSingleParam(poolKey, false, wethIn, 0n);
-      const inner1 = encodeV4SwapBundle(
-        swap1,
-        addr.pairedToken,
-        ethers.MaxUint256,
-        ctx.tokenAddress,
-        0n
-      );
-      const deadline = Math.floor(Date.now() / 1000) + 3600;
-      await (
-        await ur.execute(ethers.toBeHex(COMMAND_V4_SWAP, 1), [inner1], deadline)
-      ).wait();
-
-      const balTok = await token.balanceOf(ctx.one.address);
-      expect(balTok).to.be.gt(0n);
-
-      await permit2Approve(ctx.one, ctx.tokenAddress, addr.universalRouterV4, uint160Max());
-      const swapBack = balTok / 4n;
-      const swap2 = encodeExactInputSingleParam(poolKey, true, swapBack, 0n);
-      const inner2 = encodeV4SwapBundle(
-        swap2,
-        ctx.tokenAddress,
-        ethers.MaxUint256,
-        addr.pairedToken,
-        0n
-      );
-      await (
-        await ur.execute(ethers.toBeHex(COMMAND_V4_SWAP, 1), [inner2], deadline)
-      ).wait();
+      await runV4SwapsForFees(ctx, poolKey);
     });
 
     it("claims LP rewards via LPFactory.claimRewards (locker collectRewards)", async function () {
@@ -467,8 +494,78 @@ describe("Uniswap v4 Deploy", function () {
         );
     });
   });
-});
 
-function uint160Max() {
-  return (1n << 160n) - 1n;
-}
+  describe("replaceUserRewardRecipient (deployer → new address)", function () {
+    let ctx;
+    /** @type {{ currency0: string, currency1: string, fee: number, tickSpacing: number, hooks: string }} */
+    let poolKey;
+    /** @type {import("ethers").Signer} */
+    let newRecipientSigner;
+    let newRecipientAddress;
+
+    before(async function () {
+      this.timeout(300000);
+      if (chain !== "localhost" && chain !== "base") {
+        this.skip();
+      }
+      const signers = await ethers.getSigners();
+      const deployerForFees = signers[0].address;
+      newRecipientSigner = signers[2];
+      newRecipientAddress = newRecipientSigner.address;
+
+      ctx = await deployV4TokenFixture({ deployer: deployerForFees });
+
+      const pm = new ethers.Contract(addr.positionManagerV4, positionManagerViewAbi, ethers.provider);
+      const [key] = await pm.getPoolAndPositionInfo(ctx.positionId);
+      poolKey = {
+        currency0: key.currency0,
+        currency1: key.currency1,
+        fee: Number(key.fee),
+        tickSpacing: Number(key.tickSpacing),
+        hooks: key.hooks,
+      };
+
+      await runV4SwapsForFees(ctx, poolKey);
+    });
+
+    it("original fee recipient replaces reward recipient with a different address", async function () {
+      this.timeout(120000);
+
+      const beforeUr = await ctx.locker.userRewardRecipientForToken(ctx.positionId);
+      const deployerSigner = await getSignerForAddress(beforeUr.recipient, ctx.one);
+      expect(beforeUr.recipient.toLowerCase()).to.equal(ctx.one.address.toLowerCase());
+
+      await (
+        await ctx.locker.connect(deployerSigner).replaceUserRewardRecipient({
+          recipient: newRecipientAddress,
+          lpTokenId: ctx.positionId,
+        })
+      ).wait();
+
+      const afterUr = await ctx.locker.userRewardRecipientForToken(ctx.positionId);
+      expect(afterUr.recipient).to.equal(newRecipientAddress);
+      expect(afterUr.lpTokenId).to.equal(ctx.positionId);
+
+      const idsOld = await ctx.locker.getLpTokenIdsForUser(ctx.one.address);
+      const idsNew = await ctx.locker.getLpTokenIdsForUser(newRecipientAddress);
+      expect(idsOld.some((id) => id === ctx.positionId)).to.equal(false);
+      expect(idsNew.some((id) => id === ctx.positionId)).to.equal(true);
+    });
+
+    it("claimRewards pays the new recipient after replaceUserRewardRecipient", async function () {
+      this.timeout(180000);
+
+      await expect(ctx.lpFactoryV4.claimRewards(ctx.tokenAddress))
+        .to.emit(ctx.locker, "ClaimedRewards")
+        .withArgs(
+          newRecipientAddress,
+          poolKey.currency0,
+          poolKey.currency1,
+          anyValue,
+          anyValue,
+          anyValue,
+          anyValue
+        );
+    });
+  });
+});
