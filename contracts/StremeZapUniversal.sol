@@ -146,8 +146,12 @@ contract StremeZapUniversal {
         payable
         returns (uint256 amountOut)
     {
-        require(msg.value == amountIn, "msg.value must be equal to amountIn");
-        ISETH(ethx).upgradeByETH{value: msg.value}();
+        if (msg.value == 0) {
+            IERC20(ethx).safeTransferFrom(msg.sender, address(this), amountIn);
+        } else {
+            require(msg.value == amountIn, "msg.value must be equal to amountIn");
+            ISETH(ethx).upgradeByETH{value: msg.value}();
+        }
         address recipient = (stakingContract != address(0)) ? address(this) : msg.sender;
 
         amountOut = _zapInner(ethx, stremeCoin, amountIn, amountOutMin, recipient);

@@ -44,6 +44,11 @@ const WETH_ABI = [
   "function approve(address spender, uint256 amount) returns (bool)",
   "function balanceOf(address) view returns (uint256)",
 ];
+const ETHX_ABI = [
+  "function upgradeByETH() payable",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function balanceOf(address) view returns (uint256)",
+];
 
 async function deployMocksAndUniversal() {
   const MockLPFactoryAero = await ethers.getContractFactory("MockLPFactoryAero");
@@ -251,6 +256,20 @@ describe("StremeZapUniversal", function () {
     const tx = await universal.zap(tokenOut, amountIn, 0, ethers.ZeroAddress);
     await tx.wait();
     expect(await outToken.balanceOf(signer.address)).to.be.gt(before);
+  });
+
+  it("accepts pre-wrapped ETHx input mode (msg.value = 0) and no longer requires msg.value == amountIn", async function () {
+    forkRequired(this.skip.bind(this));
+    const [signer] = await ethers.getSigners();
+    const { universal } = await deployMocksAndUniversal();
+
+    const amountIn = ethers.parseEther("0.02");
+    const ethx = new ethers.Contract(BASE.ethx, ETHX_ABI, signer);
+    await ethx.upgradeByETH({ value: amountIn });
+
+    await expect(
+      universal.zapETHx(BASE.weth, amountIn, 0, ethers.ZeroAddress)
+    ).to.be.reverted;
   });
 
   it("reverts ETH v4 zap when amountOutMin is set too high", async function () {
